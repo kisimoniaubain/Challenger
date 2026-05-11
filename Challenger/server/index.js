@@ -101,6 +101,11 @@ app.use(cors())
 app.use(express.json({ limit: '25mb' }))
 app.use('/uploads', express.static(uploadsDirectory))
 
+const distDirectory = path.join(projectRoot, 'dist')
+if (existsSync(distDirectory)) {
+  app.use(express.static(distDirectory))
+}
+
 app.get('/api/health', (_request, response) => {
   response.json({ ok: true })
 })
@@ -249,6 +254,12 @@ app.post('/api/upload', upload.single('file'), (request, response) => {
     mimeType: request.file.mimetype,
   })
 })
+
+if (existsSync(distDirectory)) {
+  app.get('*', (_request, response) => {
+    response.sendFile(path.join(distDirectory, 'index.html'))
+  })
+}
 
 app.listen(port, () => {
   console.log(`Challenger server running on http://localhost:${port}`)
