@@ -306,6 +306,7 @@ export default function LoginPage({ onLogin, onRegister, onGoogleLogin }) {
         name: `${firstName.trim()} ${lastName.trim()}`,
         email,
         password,
+         gender,
       })
     } else {
       result = onLogin(email, password)
@@ -327,7 +328,7 @@ export default function LoginPage({ onLogin, onRegister, onGoogleLogin }) {
   return (
     <section className="login-page" aria-label="Login to C Challenger">
       <div className="login-card">
-        <h1 className="brand-heading">
+        <h1 className="brand-heading brand-heading-stacked">
           <span className="brand-mark" aria-hidden="true">C</span>
           <span className="brand-word">Challenger</span>
         </h1>

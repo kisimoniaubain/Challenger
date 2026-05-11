@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { uploadMediaFile } from '../services/api'
+import { getAvatar } from '../utils/avatar'
 
 export default function ProfilePage({
   currentUser,
@@ -91,7 +92,7 @@ export default function ProfilePage({
       <div className="profile-header">
         <div className="profile-avatar-large-wrap">
           <img
-            src={currentUser.avatar}
+            src={getAvatar(currentUser)}
             alt={currentUser.name}
             className="profile-avatar-large"
           />

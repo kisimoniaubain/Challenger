@@ -1,7 +1,5 @@
 import { useState } from 'react'
-
-const DEFAULT_AVATAR =
-  'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=200&q=80'
+import { getAvatar } from '../utils/avatar'
 
 export default function UserProfilePage({ user, currentUserId, users, posts, onNavigate }) {
   const isOwnProfile = user?.id === currentUserId
@@ -43,7 +41,7 @@ export default function UserProfilePage({ user, currentUserId, users, posts, onN
       <div className="profile-header">
         <div className="profile-avatar-large-wrap">
           <img
-            src={user.avatar || DEFAULT_AVATAR}
+            src={getAvatar(user)}
             alt={user.name}
             className="profile-avatar-large"
           />

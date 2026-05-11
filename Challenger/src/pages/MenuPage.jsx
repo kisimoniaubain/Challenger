@@ -1,3 +1,5 @@
+import { getAvatar } from '../utils/avatar'
+
 export default function MenuPage({ onTabChange, onNavigate, currentUser, theme, onToggleTheme }) {
   const menuItems = [
     {
@@ -93,7 +95,7 @@ export default function MenuPage({ onTabChange, onNavigate, currentUser, theme, 
 
         {/* User Info Card */}
         <div className="menu-user-card">
-          <img src={currentUser.avatar} alt={currentUser.name} />
+          <img src={getAvatar(currentUser)} alt={currentUser.name} />
           <div>
             <h4>{currentUser.name}</h4>
             <p>{currentUser.email}</p>

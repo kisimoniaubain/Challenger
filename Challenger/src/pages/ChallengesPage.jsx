@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { uploadMediaFile } from '../services/api'
+import { getAvatar } from '../utils/avatar'
 
 export default function ChallengesPage({
   currentUser,
@@ -212,7 +213,7 @@ export default function ChallengesPage({
                   className="challenge-user-link"
                   onClick={() => onNavigateToProfile?.(author?.id)}
                 >
-                  <img src={author?.avatar} alt={author?.name} className="post-avatar" />
+                  <img src={getAvatar(author)} alt={author?.name} className="post-avatar" />
                   <div>
                     <h3>{post.challengeTitle}</h3>
                     <p>{author?.name}</p>

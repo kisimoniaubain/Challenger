@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { getAvatar } from '../utils/avatar'
 
 const tabItems = [
   { id: 'home', label: 'Home', icon: 'fa-solid fa-house' },
@@ -121,7 +122,7 @@ export default function TopNav({
                     className="top-search-item"
                     onClick={() => handleSearchUserClick(user.id)}
                   >
-                    <img src={user.avatar} alt={user.name} className="top-search-avatar" />
+                    <img src={getAvatar(user)} alt={user.name} className="top-search-avatar" />
                     <div>
                       <strong>{user.name}</strong>
                       <p>{user.email}</p>
@@ -178,11 +179,7 @@ export default function TopNav({
                 aria-expanded={showPopover}
                 onClick={() => setShowPopover((prev) => !prev)}
               >
-                {currentUser?.avatar ? (
-                  <img src={currentUser.avatar} alt={currentUser.name} className="top-user-avatar" />
-                ) : (
-                  <i className="fa-solid fa-user" aria-hidden="true" />
-                )}
+                <img src={getAvatar(currentUser)} alt={currentUser?.name} className="top-user-avatar" />
               </button>
 
               {showPopover && (
@@ -190,7 +187,7 @@ export default function TopNav({
                   {/* User info row */}
                   <div className="popover-user-row">
                     <img
-                      src={currentUser?.avatar}
+                      src={getAvatar(currentUser)}
                       alt={currentUser?.name}
                       className="popover-avatar"
                     />

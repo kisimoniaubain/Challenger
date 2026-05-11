@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { getAvatar } from '../utils/avatar'
 
 const STORY_DURATION_MS = 5000
 const STORY_EXPIRY_MS = 24 * 60 * 60 * 1000
@@ -258,7 +259,7 @@ export default function StoryStrip({
                   />
                 )}
                 <img
-                  src={group.author?.avatar}
+                  src={getAvatar(group.author)}
                   alt={group.author?.name}
                   className="story-ring-avatar"
                 />
@@ -303,7 +304,7 @@ export default function StoryStrip({
 
             <div className="story-viewer-head">
               <img
-                src={activeAuthor?.avatar}
+                src={getAvatar(activeAuthor)}
                 alt={activeAuthor?.name}
                 className="story-viewer-avatar"
               />

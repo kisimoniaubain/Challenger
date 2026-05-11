@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import StoryStrip from '../components/StoryStrip'
+import { getAvatar } from '../utils/avatar'
 import PostCard from '../components/PostCard'
 import { uploadMediaFile } from '../services/api'
 
@@ -211,7 +212,7 @@ export default function HomePage({
           className="fb-side-user"
           onClick={() => onTabChange('profile')}
         >
-          <img src={currentUser.avatar} alt={currentUser.name} className="fb-side-user-avatar" />
+          <img src={getAvatar(currentUser)} alt={currentUser.name} className="fb-side-user-avatar" />
           <span>{currentUser.name}</span>
         </button>
 
@@ -243,7 +244,7 @@ export default function HomePage({
       <main className="fb-feed">
         {/* Composer */}
         <div className="fb-composer">
-          <img src={currentUser.avatar} alt={currentUser.name} className="fb-composer-avatar" />
+          <img src={getAvatar(currentUser)} alt={currentUser.name} className="fb-composer-avatar" />
           <button type="button" className="fb-composer-pill" onClick={() => openComposer('post')}>
             What's your challenge today, {currentUser.name.split(' ')[0]}?
           </button>
@@ -299,7 +300,7 @@ export default function HomePage({
           {topChallengers.map((user, i) => (
             <button key={user.id} type="button" className="fb-contact-row" onClick={() => onNavigateToProfile?.(user.id)}>
               <span className="fb-contact-rank">#{i + 1}</span>
-              <img src={user.avatar} alt={user.name} className="fb-contact-avatar" />
+              <img src={getAvatar(user)} alt={user.name} className="fb-contact-avatar" />
               <div className="fb-contact-info">
                 <strong>{user.name}</strong>
                 <p>{user.totalVotes} votes</p>
@@ -320,7 +321,7 @@ export default function HomePage({
                 className="fb-contact-row"
                 onClick={() => author && onNavigateToProfile?.(author.id)}
               >
-                <img src={author?.avatar} alt={author?.name} className="fb-contact-avatar" />
+                <img src={getAvatar(author)} alt={author?.name} className="fb-contact-avatar" />
                 <div className="fb-contact-info">
                   <strong>{post.challengeTitle}</strong>
                   <p>{post.challengeVotes} votes</p>

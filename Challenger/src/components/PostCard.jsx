@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import { getAvatar } from '../utils/avatar'
 
 function MediaBlock({ post, authorName }) {
   if (!post.mediaUrl || !post.mediaType) return null
@@ -50,7 +51,7 @@ export default function PostCard({
         id: Date.now(),
         text,
         authorName: currentUser?.name || 'You',
-        avatar: currentUser?.avatar,
+          avatar: getAvatar(currentUser),
         time: 'Just now',
       },
     ])
@@ -68,7 +69,7 @@ export default function PostCard({
           onClick={() => author && onNavigateToProfile?.(author.id)}
           aria-label={`View ${author?.name} profile`}
         >
-          <img src={author?.avatar} alt={author?.name} className="post-avatar" />
+          <img src={getAvatar(author)} alt={author?.name} className="post-avatar" />
         </button>
         <div className="post-head-info">
           <button
@@ -147,10 +148,7 @@ export default function PostCard({
             <div className="post-comments-list">
               {localComments.map((c) => (
                 <div key={c.id} className="post-comment-item">
-                  {c.avatar
-                    ? <img src={c.avatar} alt={c.authorName} className="comment-avatar" />
-                    : <span className="comment-avatar comment-avatar-placeholder"><i className="fa-solid fa-user" /></span>
-                  }
+                  <img src={c.avatar || '/avatars/default-neutral.svg'} alt={c.authorName} className="comment-avatar" />
                   <div className="comment-bubble">
                     <span className="comment-author-name">{c.authorName}</span>
                     <p className="comment-text">{c.text}</p>
@@ -160,10 +158,7 @@ export default function PostCard({
             </div>
           )}
           <form className="post-comment-input-row" onSubmit={handleCommentSubmit}>
-            {currentUser?.avatar
-              ? <img src={currentUser.avatar} alt="You" className="comment-avatar" />
-              : <span className="comment-avatar comment-avatar-placeholder"><i className="fa-solid fa-user" /></span>
-            }
+            <img src={getAvatar(currentUser)} alt="You" className="comment-avatar" />
             <input
               ref={commentInputRef}
               className="comment-input"

@@ -85,10 +85,11 @@ function createUserRecord(users, profile = {}) {
     password: profile.password || '',
     avatar:
       profile.avatar ||
-      'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=200&q=80',
+      '',
     coverPhoto: profile.coverPhoto || '',
     totalVotes: 0,
     googleId: profile.googleId || null,
+     gender: profile.gender || '',
   }
 }
 
