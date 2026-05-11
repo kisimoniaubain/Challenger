@@ -96,39 +96,76 @@ select {
 }
 
 .top-brand-row {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  flex-wrap: nowrap;
 }
 
 .brand-name {
   display: inline-flex;
   align-items: baseline;
-  gap: 8px;
-  font-size: 1.9rem;
+  gap: 4px;
+  font-size: 1.62rem;
   font-weight: 800;
   color: var(--text);
   letter-spacing: 0.1px;
   line-height: 1;
+  white-space: nowrap;
 }
 
 .brand-word {
   font-weight: 800;
+  font-size: 0.98rem;
 }
 
 .brand-mark {
   font-family: 'Brigends Expanded', 'Agency FB', Impact, 'Arial Black', sans-serif;
   font-weight: 700;
   letter-spacing: 0.04em;
-  color: var(--accent);
+  color: #16a34a;
   line-height: 1;
 }
 
 .brand-logo-mark {
-  color: var(--accent);
-  font-size: 2.75rem;
-  transform: translateY(-1px);
-  line-height: 0.9;
+  color: #16a34a;
+  font-size: 2.95rem;
+  transform: translateY(-2px);
+  line-height: 0.85;
+}
+
+.brand-c-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 60%, #15803d 100%);
+  box-shadow: 0 4px 14px rgba(22, 163, 74, 0.45);
+  border: none;
+  cursor: pointer;
+  font-family: 'Brigends Expanded', 'Agency FB', Impact, 'Arial Black', sans-serif;
+  font-size: 2.1rem;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  flex-shrink: 0;
+  transition: filter 140ms ease, transform 140ms ease;
+}
+
+.brand-c-badge:hover {
+  filter: brightness(1.08);
+  transform: scale(1.04);
+}
+
+.brand-word-header {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--text);
+  white-space: nowrap;
+  line-height: 1;
 }
 
 .brand-inline {
@@ -150,6 +187,21 @@ select {
   font-weight: 900;
   letter-spacing: -0.5px;
   flex-shrink: 0;
+}
+.brand-heading-stacked {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  text-align: center;
+}
+.brand-heading-stacked .brand-mark {
+  font-size: 2.9rem;
+  line-height: 0.85;
+}
+.brand-heading-stacked .brand-word {
+  font-size: 1.35rem;
+  line-height: 1;
 }
 
 .brand-logo {
@@ -2828,7 +2880,8 @@ body.theme-dark .challenge-card .vote-btn {
   }
 
   .brand-name {
-    font-size: 1.15rem;
+    font-size: 1rem;
+    gap: 4px;
   }
 
   .brand-mark {
@@ -2836,7 +2889,23 @@ body.theme-dark .challenge-card .vote-btn {
   }
 
   .brand-logo-mark {
-    font-size: 2.2rem;
+    font-size: 2.95rem;
+    transform: translateY(-1px);
+  }
+
+  .brand-word {
+    font-size: 0.9rem;
+  }
+
+  .brand-c-badge {
+    width: 40px;
+    height: 40px;
+    font-size: 1.65rem;
+    border-radius: 11px;
+  }
+
+  .brand-word-header {
+    font-size: 1.1rem;
   }
 
   .stories-title {
