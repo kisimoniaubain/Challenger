@@ -453,6 +453,28 @@ select {
   color: var(--text-muted);
 }
 
+.login-mode-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.login-mode-switch button {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 700;
+  padding: 9px 10px;
+  cursor: pointer;
+}
+
+.login-mode-switch button.is-active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+}
+
 .login-form {
   display: grid;
   gap: 8px;

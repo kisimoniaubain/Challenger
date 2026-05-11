@@ -14,9 +14,11 @@ function parseHashParams(hashValue) {
   return new URLSearchParams(hash)
 }
 
-export default function LoginPage({ onLogin, onGoogleLogin }) {
+export default function LoginPage({ onLogin, onRegister, onGoogleLogin }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [authMode, setAuthMode] = useState('login')
   const [error, setError] = useState('')
   const [googleNotice, setGoogleNotice] = useState('')
   const [debugInfo, setDebugInfo] = useState('')
@@ -223,12 +225,23 @@ export default function LoginPage({ onLogin, onGoogleLogin }) {
   function handleSubmit(event) {
     event.preventDefault()
 
-    const result = onLogin(email, password)
+    if (authMode === 'register' && password !== confirmPassword) {
+      setError('Passwords do not match.')
+      return
+    }
+
+    const action = authMode === 'register' ? onRegister : onLogin
+    const result = action(email, password)
     if (!result.ok) {
       setError(result.message)
       return
     }
 
+    setError('')
+  }
+
+  function handleSwitchMode(nextMode) {
+    setAuthMode(nextMode)
     setError('')
   }
 
@@ -260,7 +273,32 @@ export default function LoginPage({ onLogin, onGoogleLogin }) {
     <section className="login-page" aria-label="Login to Challenger">
       <div className="login-card">
         <h1>Challenger</h1>
-        <p className="login-subtitle">Log in to continue like Facebook.</p>
+        <p className="login-subtitle">
+          {authMode === 'login'
+            ? 'Log in to continue like Facebook.'
+            : 'Create your account to start using Challenger.'}
+        </p>
+
+        <div className="login-mode-switch" role="tablist" aria-label="Authentication mode">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={authMode === 'login'}
+            className={authMode === 'login' ? 'is-active' : ''}
+            onClick={() => handleSwitchMode('login')}
+          >
+            Log In
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={authMode === 'register'}
+            className={authMode === 'register' ? 'is-active' : ''}
+            onClick={() => handleSwitchMode('register')}
+          >
+            Create Account
+          </button>
+        </div>
 
         <form className="login-form" onSubmit={handleSubmit}>
           <label htmlFor="email">Email</label>
@@ -283,9 +321,23 @@ export default function LoginPage({ onLogin, onGoogleLogin }) {
             required
           />
 
+          {authMode === 'register' ? (
+            <>
+              <label htmlFor="confirm-password">Confirm password</label>
+              <input
+                id="confirm-password"
+                type="password"
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+                placeholder="Confirm password"
+                required
+              />
+            </>
+          ) : null}
+
           {error ? <p className="login-error">{error}</p> : null}
 
-          <button type="submit">Log In</button>
+          <button type="submit">{authMode === 'login' ? 'Log In' : 'Create Account'}</button>
         </form>
 
         {googleClientId ? (
@@ -313,8 +365,9 @@ export default function LoginPage({ onLogin, onGoogleLogin }) {
         )}
 
         <p className="login-hint">
-          Use your email and password to sign in. If the email is new, Challenger will create
-          your account automatically.
+          {authMode === 'login'
+            ? 'If you do not have an account yet, switch to Create Account.'
+            : 'Already have an account? Switch back to Log In.'}
         </p>
 
         {debugInfo ? <p style={{ fontSize: '0.75rem', color: '#999', marginTop: '10px' }}>{debugInfo}</p> : null}

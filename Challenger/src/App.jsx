@@ -247,24 +247,37 @@ export default function App() {
       (user) => user.email.toLowerCase() === normalizedEmail,
     )
 
+    if (!existingUser) {
+      return { ok: false, message: 'No account found for this email. Please create one.' }
+    }
+
+    if (existingUser.password && existingUser.password !== password) {
+      return { ok: false, message: 'Wrong email or password.' }
+    }
+
+    if (!existingUser.password) {
+      setUsers((currentUsers) =>
+        currentUsers.map((user) =>
+          user.id === existingUser.id ? { ...user, password } : user,
+        ),
+      )
+    }
+
+    setCurrentUserId(existingUser.id)
+    setViewingUserId(existingUser.id)
+    setActiveTab('user-profile')
+    localStorage.setItem(SESSION_KEY, String(existingUser.id))
+    return { ok: true }
+  }
+
+  function handleRegister(email, password) {
+    const normalizedEmail = email.trim().toLowerCase()
+    const existingUser = users.find(
+      (user) => user.email.toLowerCase() === normalizedEmail,
+    )
+
     if (existingUser) {
-      if (existingUser.password && existingUser.password !== password) {
-        return { ok: false, message: 'Wrong email or password.' }
-      }
-
-      if (!existingUser.password) {
-        setUsers((currentUsers) =>
-          currentUsers.map((user) =>
-            user.id === existingUser.id ? { ...user, password } : user,
-          ),
-        )
-      }
-
-      setCurrentUserId(existingUser.id)
-      setViewingUserId(existingUser.id)
-      setActiveTab('user-profile')
-      localStorage.setItem(SESSION_KEY, String(existingUser.id))
-      return { ok: true, created: false }
+      return { ok: false, message: 'An account with this email already exists. Please log in.' }
     }
 
     const newUser = createUserRecord(users, { email: normalizedEmail, password })
@@ -273,7 +286,7 @@ export default function App() {
     setViewingUserId(newUser.id)
     setActiveTab('user-profile')
     localStorage.setItem(SESSION_KEY, String(newUser.id))
-    return { ok: true, created: true }
+    return { ok: true }
   }
 
   function handleGoogleLogin(profile) {
@@ -485,7 +498,13 @@ export default function App() {
   }
 
   if (!currentUser) {
-    return <LoginPage onLogin={handleLogin} onGoogleLogin={handleGoogleLogin} />
+    return (
+      <LoginPage
+        onLogin={handleLogin}
+        onRegister={handleRegister}
+        onGoogleLogin={handleGoogleLogin}
+      />
+    )
   }
 
   return (
