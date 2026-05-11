@@ -94,7 +94,11 @@ export default function SettingsPage({ currentUser, onLogout }) {
           </h3>
           <div className="settings-info">
             <p>
-              <strong>Challenger</strong> v1.0
+              <strong className="brand-inline">
+                <span className="brand-mark" aria-hidden="true">C</span>
+                <span className="brand-word">Challenger</span>
+              </strong>{' '}
+              v1.0
             </p>
             <p className="option-desc">
               A Facebook-like social platform for music challenges and voting.

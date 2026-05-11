@@ -229,7 +229,14 @@ export default function HomePage({
           ))}
         </nav>
 
-        <p className="fb-side-footer">Challenger &middot; 2026</p>
+        <p className="fb-side-footer">
+          <span className="brand-inline">
+            <span className="brand-mark" aria-hidden="true">C</span>
+            <span className="brand-word">Challenger</span>
+          </span>
+          {' '}
+          &middot; 2026
+        </p>
       </aside>
 
       {/* ── Center feed ── */}

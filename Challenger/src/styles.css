@@ -15,6 +15,14 @@
   --shadow-md: 0 8px 24px rgba(17, 29, 58, 0.16);
 }
 
+@font-face {
+  font-family: 'Brigends Expanded';
+  src:
+    local('Brigends Expanded'),
+    local('Brigends Expanded Regular');
+  font-display: swap;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -93,11 +101,41 @@ select {
 }
 
 .brand-name {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
   font-size: 1.75rem;
   font-weight: 800;
   color: var(--text);
   letter-spacing: 0.1px;
   line-height: 1;
+}
+
+.brand-word {
+  font-weight: 800;
+}
+
+.brand-mark {
+  font-family: 'Brigends Expanded', 'Agency FB', Impact, 'Arial Black', sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  line-height: 1;
+}
+
+.brand-heading {
+  margin: 0;
+  color: var(--accent);
+  font-size: 1.8rem;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.brand-inline {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
 }
 
 .top-search-row {
@@ -442,12 +480,6 @@ select {
   box-shadow: 0 16px 34px rgba(17, 53, 117, 0.12);
 }
 
-.login-card h1 {
-  margin: 0;
-  color: var(--accent);
-  font-size: 1.8rem;
-}
-
 .login-subtitle {
   margin: 8px 0 14px;
   color: var(--text-muted);
@@ -722,6 +754,10 @@ select {
   padding: 0 6px;
   font-size: 0.72rem;
   color: var(--text-muted);
+}
+
+.fb-side-footer .brand-mark {
+  font-size: 0.95em;
 }
 
 .fb-composer {
@@ -2805,6 +2841,10 @@ body.theme-dark .challenge-card .vote-btn {
 
   .brand-name {
     font-size: 1.1rem;
+  }
+
+  .brand-mark {
+    font-size: 0.95em;
   }
 
   .stories-title {
