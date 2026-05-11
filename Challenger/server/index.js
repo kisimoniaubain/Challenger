@@ -85,6 +85,7 @@ if (
 }
 
 const app = express()
+app.set('trust proxy', 1)
 const storage = multer.diskStorage({
   destination: (_request, _file, callback) => {
     callback(null, uploadsDirectory)
@@ -249,8 +250,10 @@ app.post('/api/upload', upload.single('file'), (request, response) => {
     return
   }
 
+  const publicOrigin = `${request.protocol}://${request.get('host')}`
+
   response.json({
-    url: `http://localhost:${port}/uploads/${request.file.filename}`,
+    url: `${publicOrigin}/uploads/${request.file.filename}`,
     mimeType: request.file.mimetype,
   })
 })

@@ -44,7 +44,8 @@ database.exec(`
     avatar TEXT,
     coverPhoto TEXT,
     totalVotes INTEGER DEFAULT 0,
-    googleId TEXT
+    googleId TEXT,
+    gender TEXT DEFAULT ''
   );
 
   CREATE TABLE IF NOT EXISTS posts (
@@ -86,6 +87,9 @@ database.exec(`
 const userColumns = database.prepare('PRAGMA table_info(users)').all()
 if (!userColumns.some((column) => column.name === 'coverPhoto')) {
   database.exec('ALTER TABLE users ADD COLUMN coverPhoto TEXT')
+}
+if (!userColumns.some((column) => column.name === 'gender')) {
+  database.exec("ALTER TABLE users ADD COLUMN gender TEXT DEFAULT ''")
 }
 
 const storyColumns = database.prepare('PRAGMA table_info(stories)').all()
@@ -146,8 +150,8 @@ function normalizeRows(rows) {
 
 function replaceUsers(users) {
   const insertUser = database.prepare(`
-    INSERT INTO users (id, name, email, password, avatar, coverPhoto, totalVotes, googleId)
-    VALUES (@id, @name, @email, @password, @avatar, @coverPhoto, @totalVotes, @googleId)
+    INSERT INTO users (id, name, email, password, avatar, coverPhoto, totalVotes, googleId, gender)
+    VALUES (@id, @name, @email, @password, @avatar, @coverPhoto, @totalVotes, @googleId, @gender)
   `)
 
   runReplace('users', normalizeUsers(users), (user) => {
@@ -160,6 +164,7 @@ function replaceUsers(users) {
         coverPhoto: user.coverPhoto || '',
         totalVotes: toSafeNumber(user.totalVotes),
         googleId: user.googleId || null,
+        gender: user.gender || '',
       })
   })
 }
