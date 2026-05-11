@@ -72,10 +72,14 @@ function readStoredJson(key, fallbackValue) {
 function createUserRecord(users, profile = {}) {
   const normalizedEmail = profile.email?.trim().toLowerCase()
   const nextId = users.reduce((maxId, user) => Math.max(maxId, user.id), 0) + 1
+  const preferredName = [profile.firstName, profile.lastName]
+    .map((value) => value?.trim())
+    .filter(Boolean)
+    .join(' ')
 
   return {
     id: nextId,
-    name: profile.name?.trim() || normalizedEmail?.split('@')[0] || `user${nextId}`,
+    name: preferredName || profile.name?.trim() || normalizedEmail?.split('@')[0] || `user${nextId}`,
     email: normalizedEmail || '',
     password: profile.password || '',
     avatar:
@@ -270,8 +274,8 @@ export default function App() {
     return { ok: true }
   }
 
-  function handleRegister(email, password) {
-    const normalizedEmail = email.trim().toLowerCase()
+  function handleRegister(profile) {
+    const normalizedEmail = profile.email.trim().toLowerCase()
     const existingUser = users.find(
       (user) => user.email.toLowerCase() === normalizedEmail,
     )
@@ -280,7 +284,10 @@ export default function App() {
       return { ok: false, message: 'An account with this email already exists. Please log in.' }
     }
 
-    const newUser = createUserRecord(users, { email: normalizedEmail, password })
+    const newUser = createUserRecord(users, {
+      ...profile,
+      email: normalizedEmail,
+    })
     setUsers((currentUsers) => [...currentUsers, newUser])
     setCurrentUserId(newUser.id)
     setViewingUserId(newUser.id)

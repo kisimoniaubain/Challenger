@@ -15,9 +15,14 @@ function parseHashParams(hashValue) {
 }
 
 export default function LoginPage({ onLogin, onRegister, onGoogleLogin }) {
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [birthday, setBirthday] = useState('')
+  const [gender, setGender] = useState('')
+  const [acceptedTerms, setAcceptedTerms] = useState(false)
   const [authMode, setAuthMode] = useState('login')
   const [error, setError] = useState('')
   const [googleNotice, setGoogleNotice] = useState('')
@@ -225,13 +230,58 @@ export default function LoginPage({ onLogin, onRegister, onGoogleLogin }) {
   function handleSubmit(event) {
     event.preventDefault()
 
-    if (authMode === 'register' && password !== confirmPassword) {
-      setError('Passwords do not match.')
-      return
+    let result = null
+
+    if (authMode === 'register') {
+      if (!firstName.trim() || !lastName.trim()) {
+        setError('First name and surname are required.')
+        return
+      }
+
+      if (password.length < 6) {
+        setError('Password must be at least 6 characters.')
+        return
+      }
+
+      if (password !== confirmPassword) {
+        setError('Passwords do not match.')
+        return
+      }
+
+      if (!birthday) {
+        setError('Birthday is required.')
+        return
+      }
+
+      const birthdayDate = new Date(birthday)
+      const minAllowedBirthday = new Date()
+      minAllowedBirthday.setFullYear(minAllowedBirthday.getFullYear() - 13)
+      if (birthdayDate > minAllowedBirthday) {
+        setError('You must be at least 13 years old to create an account.')
+        return
+      }
+
+      if (!gender) {
+        setError('Please choose a gender.')
+        return
+      }
+
+      if (!acceptedTerms) {
+        setError('Please agree to the terms to create an account.')
+        return
+      }
+
+      result = onRegister({
+        firstName,
+        lastName,
+        name: `${firstName.trim()} ${lastName.trim()}`,
+        email,
+        password,
+      })
+    } else {
+      result = onLogin(email, password)
     }
 
-    const action = authMode === 'register' ? onRegister : onLogin
-    const result = action(email, password)
     if (!result.ok) {
       setError(result.message)
       return
@@ -279,28 +329,36 @@ export default function LoginPage({ onLogin, onRegister, onGoogleLogin }) {
             : 'Create your account to start using Challenger.'}
         </p>
 
-        <div className="login-mode-switch" role="tablist" aria-label="Authentication mode">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={authMode === 'login'}
-            className={authMode === 'login' ? 'is-active' : ''}
-            onClick={() => handleSwitchMode('login')}
-          >
-            Log In
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={authMode === 'register'}
-            className={authMode === 'register' ? 'is-active' : ''}
-            onClick={() => handleSwitchMode('register')}
-          >
-            Create Account
-          </button>
-        </div>
-
         <form className="login-form" onSubmit={handleSubmit}>
+          {authMode === 'register' ? (
+            <>
+              <div className="register-name-grid">
+                <div>
+                  <label htmlFor="first-name">First name</label>
+                  <input
+                    id="first-name"
+                    type="text"
+                    value={firstName}
+                    onChange={(event) => setFirstName(event.target.value)}
+                    placeholder="First name"
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="last-name">Surname</label>
+                  <input
+                    id="last-name"
+                    type="text"
+                    value={lastName}
+                    onChange={(event) => setLastName(event.target.value)}
+                    placeholder="Surname"
+                    required
+                  />
+                </div>
+              </div>
+            </>
+          ) : null}
+
           <label htmlFor="email">Email</label>
           <input
             id="email"
@@ -332,6 +390,63 @@ export default function LoginPage({ onLogin, onRegister, onGoogleLogin }) {
                 placeholder="Confirm password"
                 required
               />
+
+              <label htmlFor="birthday">Date of birth</label>
+              <input
+                id="birthday"
+                type="date"
+                value={birthday}
+                onChange={(event) => setBirthday(event.target.value)}
+                required
+              />
+
+              <fieldset className="register-gender">
+                <legend>Gender</legend>
+                <label>
+                  <input
+                    type="radio"
+                    name="gender"
+                    value="Female"
+                    checked={gender === 'Female'}
+                    onChange={(event) => setGender(event.target.value)}
+                    required
+                  />
+                  Female
+                </label>
+                <label>
+                  <input
+                    type="radio"
+                    name="gender"
+                    value="Male"
+                    checked={gender === 'Male'}
+                    onChange={(event) => setGender(event.target.value)}
+                    required
+                  />
+                  Male
+                </label>
+                <label>
+                  <input
+                    type="radio"
+                    name="gender"
+                    value="Custom"
+                    checked={gender === 'Custom'}
+                    onChange={(event) => setGender(event.target.value)}
+                    required
+                  />
+                  Custom
+                </label>
+              </fieldset>
+
+              <label className="register-terms" htmlFor="terms-check">
+                <input
+                  id="terms-check"
+                  type="checkbox"
+                  checked={acceptedTerms}
+                  onChange={(event) => setAcceptedTerms(event.target.checked)}
+                  required
+                />
+                I agree to the Terms, Data Policy, and Cookies Policy.
+              </label>
             </>
           ) : null}
 
@@ -339,6 +454,27 @@ export default function LoginPage({ onLogin, onRegister, onGoogleLogin }) {
 
           <button type="submit">{authMode === 'login' ? 'Log In' : 'Create Account'}</button>
         </form>
+
+        <div className="login-mode-switch" role="tablist" aria-label="Authentication mode">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={authMode === 'login'}
+            className={authMode === 'login' ? 'is-active' : ''}
+            onClick={() => handleSwitchMode('login')}
+          >
+            Log In
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={authMode === 'register'}
+            className={authMode === 'register' ? 'is-active' : ''}
+            onClick={() => handleSwitchMode('register')}
+          >
+            Create Account
+          </button>
+        </div>
 
         {googleClientId ? (
           <div className="google-login-block">
@@ -367,7 +503,7 @@ export default function LoginPage({ onLogin, onRegister, onGoogleLogin }) {
         <p className="login-hint">
           {authMode === 'login'
             ? 'If you do not have an account yet, switch to Create Account.'
-            : 'Already have an account? Switch back to Log In.'}
+            : 'Create an account with your details, then log in any time.'}
         </p>
 
         {debugInfo ? <p style={{ fontSize: '0.75rem', color: '#999', marginTop: '10px' }}>{debugInfo}</p> : null}
