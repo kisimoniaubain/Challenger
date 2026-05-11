@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { getAvatar } from '../utils/avatar'
+import { getAvatar, getCoverPhoto } from '../utils/avatar'
 
 export default function UserProfilePage({ user, currentUserId, users, posts, onNavigate }) {
   const isOwnProfile = user?.id === currentUserId
@@ -9,10 +9,6 @@ export default function UserProfilePage({ user, currentUserId, users, posts, onN
   const [baseFollowerCount] = useState(() => Math.floor(Math.random() * 500) + 50)
   const followerCount = baseFollowerCount + (isFollowing ? 1 : 0)
   const [activeTab, setActiveTab] = useState('posts')
-  const coverBackground = user?.coverPhoto
-    ? `url(${user.coverPhoto})`
-    : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
-
   if (!user) {
     return (
       <section className="user-profile-page">
@@ -27,15 +23,13 @@ export default function UserProfilePage({ user, currentUserId, users, posts, onN
   return (
     <section className="user-profile-page">
       {/* Cover Image */}
-      <div
-        className="profile-cover"
-        style={{
-          backgroundImage: coverBackground,
-          height: '300px',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-        }}
-      />
+      <div className="profile-cover">
+        <img
+          src={getCoverPhoto(user)}
+          alt={`${user.name} cover`}
+          className="profile-cover-image"
+        />
+      </div>
 
       {/* Profile Header */}
       <div className="profile-header">

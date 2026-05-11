@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { uploadMediaFile } from '../services/api'
-import { getAvatar } from '../utils/avatar'
+import { getAvatar, getCoverPhoto } from '../utils/avatar'
 
 export default function ProfilePage({
   currentUser,
@@ -67,15 +67,11 @@ export default function ProfilePage({
     <section className="user-profile-page">
       {/* Cover Image */}
       <div className="profile-cover">
-        {currentUser.coverPhoto ? (
-          <img
-            src={currentUser.coverPhoto}
-            alt={`${currentUser.name} cover`}
-            className="profile-cover-image"
-          />
-        ) : (
-          <div className="profile-cover-fallback" aria-hidden="true" />
-        )}
+        <img
+          src={getCoverPhoto(currentUser)}
+          alt={`${currentUser.name} cover`}
+          className="profile-cover-image"
+        />
         <label className="cover-photo-upload-btn" htmlFor="cover-photo-upload">
           <i className="fa-solid fa-camera" aria-hidden="true" /> Add cover photo
         </label>
