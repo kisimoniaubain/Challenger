@@ -22,6 +22,7 @@ import { messages as messagesData } from './data/messages'
 import { posts as postsData } from './data/posts'
 
 const SESSION_KEY = 'challenger_session_user_id'
+const ACTIVE_TAB_KEY = 'challenger_active_tab'
 const THEME_KEY = 'challenger_theme'
 const USERS_KEY = 'challenger_users'
 const POSTS_KEY = 'challenger_posts'
@@ -93,7 +94,11 @@ function createUserRecord(users, profile = {}) {
 
 export default function App() {
   // Beginner-friendly state: we keep all dynamic UI data in React hooks.
-  const [activeTab, setActiveTab] = useState('home')
+  const [activeTab, setActiveTab] = useState(() => {
+    const savedUserId = readSessionUserId()
+    if (!savedUserId) return 'home'
+    return localStorage.getItem(ACTIVE_TAB_KEY) || 'home'
+  })
   const [users, setUsers] = useState(() => readStoredJson(USERS_KEY, usersData))
   const [posts, setPosts] = useState(() => readStoredJson(POSTS_KEY, postsData))
   const [stories, setStories] = useState(() => {
@@ -108,12 +113,12 @@ export default function App() {
   })
   const [likedPosts, setLikedPosts] = useState([])
   const [votedPosts, setVotedPosts] = useState([])
-  const [currentUserId, setCurrentUserId] = useState(null)
+  const [currentUserId, setCurrentUserId] = useState(readSessionUserId)
   const [messages, setMessages] = useState(() => readStoredJson(MESSAGES_KEY, messagesData))
   const [selectedChatUserId, setSelectedChatUserId] = useState(2)
   const [theme, setTheme] = useState(() => localStorage.getItem(THEME_KEY) || 'light')
   const [apiMode, setApiMode] = useState('probing')
-  const [viewingUserId, setViewingUserId] = useState(null)
+  const [viewingUserId, setViewingUserId] = useState(() => readSessionUserId() || null)
 
   const currentUser = users.find((user) => user.id === currentUserId) || null
 
@@ -184,6 +189,11 @@ export default function App() {
       syncRemoteMessages(messages).catch(() => {})
     }
   }, [apiMode, messages])
+
+  function handleTabChange(tab) {
+    setActiveTab(tab)
+    localStorage.setItem(ACTIVE_TAB_KEY, tab)
+  }
 
   function handleToggleTheme() {
     setTheme((current) => {
@@ -271,7 +281,7 @@ export default function App() {
 
     setCurrentUserId(existingUser.id)
     setViewingUserId(existingUser.id)
-    setActiveTab('user-profile')
+    handleTabChange('user-profile')
     localStorage.setItem(SESSION_KEY, String(existingUser.id))
     return { ok: true }
   }
@@ -293,7 +303,7 @@ export default function App() {
     setUsers((currentUsers) => [...currentUsers, newUser])
     setCurrentUserId(newUser.id)
     setViewingUserId(newUser.id)
-    setActiveTab('user-profile')
+    handleTabChange('user-profile')
     localStorage.setItem(SESSION_KEY, String(newUser.id))
     return { ok: true }
   }
@@ -326,7 +336,7 @@ export default function App() {
 
       setCurrentUserId(existingUser.id)
       setViewingUserId(existingUser.id)
-      setActiveTab('profile')
+      handleTabChange('profile')
       localStorage.setItem(SESSION_KEY, String(existingUser.id))
       return { ok: true }
     }
@@ -336,20 +346,21 @@ export default function App() {
     setUsers((currentUsers) => [...currentUsers, newUser])
     setCurrentUserId(newUser.id)
     setViewingUserId(newUser.id)
-    setActiveTab('user-profile')
+    handleTabChange('user-profile')
     localStorage.setItem(SESSION_KEY, String(newUser.id))
     return { ok: true }
   }
 
   function handleLogout() {
     setCurrentUserId(null)
-    setActiveTab('home')
+    handleTabChange('home')
     localStorage.removeItem(SESSION_KEY)
+    localStorage.removeItem(ACTIVE_TAB_KEY)
   }
 
   function handleOpenChat(userId) {
     setSelectedChatUserId(userId)
-    setActiveTab('messages')
+    handleTabChange('messages')
   }
 
   function handleSendMessage(toUserId, text) {
@@ -490,19 +501,19 @@ export default function App() {
 
   function handleNavigateToUserProfile(userId) {
     setViewingUserId(userId)
-    setActiveTab('user-profile')
+    handleTabChange('user-profile')
   }
 
   function handleNavigateToMenu() {
-    setActiveTab('menu')
+    handleTabChange('menu')
   }
 
   function handleNavigateToSettings() {
-    setActiveTab('settings')
+    handleTabChange('settings')
   }
 
   function handleNavigateTab(tabName) {
-    setActiveTab(tabName)
+    handleTabChange(tabName)
     setViewingUserId(null)
   }
 
@@ -521,7 +532,7 @@ export default function App() {
       <TopNav
         currentUser={currentUser}
         activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={handleTabChange}
         users={users}
         posts={posts}
         onNavigateToProfile={handleNavigateToUserProfile}
@@ -549,7 +560,7 @@ export default function App() {
             onEditStory={handleEditStory}
             onDeleteStory={handleDeleteStory}
             onOpenChat={handleOpenChat}
-            onTabChange={setActiveTab}
+            onTabChange={handleTabChange}
             onNavigateToProfile={handleNavigateToUserProfile}
           />
         )}
@@ -617,7 +628,7 @@ export default function App() {
         )}
       </main>
 
-      <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
+      <BottomNav activeTab={activeTab} onTabChange={handleTabChange} />
     </div>
   )
 }
