@@ -261,7 +261,8 @@ export default function App() {
       }
 
       setCurrentUserId(existingUser.id)
-      setActiveTab('home')
+      setViewingUserId(existingUser.id)
+      setActiveTab('user-profile')
       localStorage.setItem(SESSION_KEY, String(existingUser.id))
       return { ok: true, created: false }
     }
@@ -269,7 +270,8 @@ export default function App() {
     const newUser = createUserRecord(users, { email: normalizedEmail, password })
     setUsers((currentUsers) => [...currentUsers, newUser])
     setCurrentUserId(newUser.id)
-    setActiveTab('home')
+    setViewingUserId(newUser.id)
+    setActiveTab('user-profile')
     localStorage.setItem(SESSION_KEY, String(newUser.id))
     return { ok: true, created: true }
   }
@@ -285,16 +287,24 @@ export default function App() {
     )
 
     if (existingUser) {
-      if (profile.googleId && existingUser.googleId !== profile.googleId) {
-        setUsers((currentUsers) =>
-          currentUsers.map((user) =>
-            user.id === existingUser.id ? { ...user, googleId: profile.googleId } : user,
-          ),
-        )
-      }
+      setUsers((currentUsers) =>
+        currentUsers.map((user) => {
+          if (user.id !== existingUser.id) {
+            return user
+          }
+
+          return {
+            ...user,
+            name: profile.name?.trim() || user.name,
+            avatar: profile.avatar || user.avatar,
+            googleId: profile.googleId || user.googleId || null,
+          }
+        }),
+      )
 
       setCurrentUserId(existingUser.id)
-      setActiveTab('home')
+      setViewingUserId(existingUser.id)
+      setActiveTab('profile')
       localStorage.setItem(SESSION_KEY, String(existingUser.id))
       return { ok: true }
     }
@@ -303,7 +313,8 @@ export default function App() {
 
     setUsers((currentUsers) => [...currentUsers, newUser])
     setCurrentUserId(newUser.id)
-    setActiveTab('home')
+    setViewingUserId(newUser.id)
+    setActiveTab('user-profile')
     localStorage.setItem(SESSION_KEY, String(newUser.id))
     return { ok: true }
   }
