@@ -85,11 +85,8 @@ export default function TopNav({
       {/* Row 1: brand */}
       <div className="top-nav-main">
         <div className="top-brand-row">
-          <button type="button" className="brand-logo" aria-label="C Challenger home" onClick={() => onTabChange('home')}>
-            <i className="fa-solid fa-crown" aria-hidden="true" />
-          </button>
           <span className="brand-name">
-            <span className="brand-mark" aria-hidden="true">C</span>
+            <span className="brand-mark brand-logo-mark" aria-hidden="true">C</span>
             <span className="brand-word">Challenger</span>
           </span>
         </div>
