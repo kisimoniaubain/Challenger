@@ -2,6 +2,17 @@ import { useEffect, useRef, useState } from 'react'
 import { fetchGoogleAuthConfig, verifyGoogleCredential } from '../services/api'
 
 const GOOGLE_SCRIPT_ID = 'google-identity-services-sdk'
+const GOOGLE_REDIRECT_NONCE_KEY = 'challenger_google_redirect_nonce'
+
+function createNonce() {
+  const random = `${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`
+  return random.slice(0, 32)
+}
+
+function parseHashParams(hashValue) {
+  const hash = hashValue.startsWith('#') ? hashValue.slice(1) : hashValue
+  return new URLSearchParams(hash)
+}
 
 export default function LoginPage({ onLogin, onRegister, onGoogleLogin }) {
   const [firstName, setFirstName] = useState('')
@@ -17,6 +28,7 @@ export default function LoginPage({ onLogin, onRegister, onGoogleLogin }) {
   const [googleNotice, setGoogleNotice] = useState('')
   const [debugInfo, setDebugInfo] = useState('')
   const [runtimeGoogleClientId, setRuntimeGoogleClientId] = useState('')
+  const [isRedirectSigningIn, setIsRedirectSigningIn] = useState(false)
   const googleButtonRef = useRef(null)
   const onGoogleLoginRef = useRef(onGoogleLogin)
   const hasInitializedGoogleRef = useRef(false)
@@ -26,6 +38,89 @@ export default function LoginPage({ onLogin, onRegister, onGoogleLogin }) {
   useEffect(() => {
     onGoogleLoginRef.current = onGoogleLogin
   }, [onGoogleLogin])
+
+  function triggerGoogleRedirectSignIn() {
+    if (!googleClientId) {
+      setError('Google login is not configured for this environment yet.')
+      return
+    }
+
+    const nonce = createNonce()
+    const origin = window.location.origin
+    const redirectUri = `${origin}${window.location.pathname}`
+    const googleUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth')
+
+    window.localStorage.setItem(GOOGLE_REDIRECT_NONCE_KEY, nonce)
+
+    googleUrl.searchParams.set('client_id', googleClientId)
+    googleUrl.searchParams.set('redirect_uri', redirectUri)
+    googleUrl.searchParams.set('response_type', 'id_token')
+    googleUrl.searchParams.set('scope', 'openid email profile')
+    googleUrl.searchParams.set('state', nonce)
+    googleUrl.searchParams.set('nonce', nonce)
+    googleUrl.searchParams.set('prompt', 'select_account')
+
+    window.location.assign(googleUrl.toString())
+  }
+
+  useEffect(() => {
+    let isCancelled = false
+
+    async function handleGoogleRedirectCallback() {
+      const params = parseHashParams(window.location.hash || '')
+      const idToken = params.get('id_token')
+      const returnedState = params.get('state')
+      const expectedState = window.localStorage.getItem(GOOGLE_REDIRECT_NONCE_KEY)
+
+      if (!idToken || !returnedState || !expectedState) {
+        return
+      }
+
+      window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`)
+
+      if (returnedState !== expectedState) {
+        setError('Google redirect verification failed. Please try again.')
+        return
+      }
+
+      window.localStorage.removeItem(GOOGLE_REDIRECT_NONCE_KEY)
+      setIsRedirectSigningIn(true)
+
+      try {
+        const verifyResult = await verifyGoogleCredential(idToken)
+        if (isCancelled) {
+          return
+        }
+
+        if (!verifyResult?.ok || !verifyResult?.profile) {
+          setError(verifyResult?.message || 'Google redirect login failed. Please try again.')
+          return
+        }
+
+        const loginResult = onGoogleLoginRef.current(verifyResult.profile)
+        if (!loginResult.ok) {
+          setError(loginResult.message)
+          return
+        }
+
+        setError('')
+      } catch (err) {
+        if (!isCancelled) {
+          setError(`Google redirect login failed: ${err.message}`)
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsRedirectSigningIn(false)
+        }
+      }
+    }
+
+    handleGoogleRedirectCallback()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     let isCancelled = false
@@ -103,6 +198,12 @@ export default function LoginPage({ onLogin, onRegister, onGoogleLogin }) {
         },
         error_callback: (error) => {
           const reason = error?.type || 'unknown_error'
+
+          if (reason === 'popup_failed_to_open' || reason === 'popup_closed') {
+            triggerGoogleRedirectSignIn()
+            return
+          }
+
           const msg =
             `Google Authorization Error (${reason}) for ${origin}\n` +
             'Your origin must be whitelisted in Google Cloud Console:\n' +
@@ -389,6 +490,7 @@ export default function LoginPage({ onLogin, onRegister, onGoogleLogin }) {
           <div className="google-login-block">
             <p className="google-login-label">or continue with</p>
             <div ref={googleButtonRef} className="google-login-button" />
+            {isRedirectSigningIn ? <p className="google-login-label">Finishing Google sign in...</p> : null}
             {googleNotice ? (
               <div className="login-error-box">
                 {googleNotice.split('\n').map((line, idx) => (
