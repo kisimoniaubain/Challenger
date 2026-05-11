@@ -138,26 +138,22 @@ select {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 52px;
-  height: 52px;
-  border-radius: 14px;
-  background: linear-gradient(135deg, #22c55e 0%, #16a34a 60%, #15803d 100%);
-  box-shadow: 0 4px 14px rgba(22, 163, 74, 0.45);
+  background: none;
   border: none;
   cursor: pointer;
   font-family: 'Brigends Expanded', 'Agency FB', Impact, 'Arial Black', sans-serif;
-  font-size: 2.1rem;
+  font-size: 3.2rem;
   font-weight: 700;
-  color: #fff;
+  color: #16a34a;
   letter-spacing: 0.02em;
   line-height: 1;
   flex-shrink: 0;
-  transition: filter 140ms ease, transform 140ms ease;
+  padding: 0;
+  transition: transform 140ms ease;
 }
 
 .brand-c-badge:hover {
-  filter: brightness(1.08);
-  transform: scale(1.04);
+  transform: scale(1.08);
 }
 
 .brand-word-header {
@@ -196,7 +192,7 @@ select {
   text-align: center;
 }
 .brand-heading-stacked .brand-mark {
-  font-size: 2.9rem;
+  font-size: 4.5rem;
   line-height: 0.85;
 }
 .brand-heading-stacked .brand-word {
@@ -2898,10 +2894,8 @@ body.theme-dark .challenge-card .vote-btn {
   }
 
   .brand-c-badge {
-    width: 40px;
-    height: 40px;
-    font-size: 1.65rem;
-    border-radius: 11px;
+    font-size: 2.6rem;
+    border-radius: 0;
   }
 
   .brand-word-header {
