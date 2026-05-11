@@ -18,6 +18,7 @@
 @font-face {
   font-family: 'Brigends Expanded';
   src:
+    url('/fonts/brigends-expanded/brigends-expanded.otf') format('opentype'),
     local('Brigends Expanded'),
     local('Brigends Expanded Regular');
   font-display: swap;
