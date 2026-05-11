@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: challenger
+    env: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: CHALLENGER_DATA_DIR
+        value: /var/data/challenger
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_IDS
+        sync: false
+      - key: VITE_GOOGLE_CLIENT_ID
+        sync: false
+    disk:
+      name: challenger-data
+      mountPath: /var/data/challenger
+      sizeGB: 1
