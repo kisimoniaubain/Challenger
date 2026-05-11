@@ -206,6 +206,7 @@ select {
   justify-content: center;
   gap: 6px;
   white-space: nowrap;
+  margin: 0 auto;
 }
 
 .brand-heading-inline .brand-mark {
