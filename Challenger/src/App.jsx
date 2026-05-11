@@ -245,18 +245,20 @@ export default function App() {
     }
   }
 
-  function handleLogin(email, password) {
-    const normalizedEmail = email.trim().toLowerCase()
+  function handleLogin(identifier, password) {
+    const normalizedIdentifier = identifier.trim().toLowerCase()
     const existingUser = users.find(
-      (user) => user.email.toLowerCase() === normalizedEmail,
+      (user) =>
+        user.email.toLowerCase() === normalizedIdentifier ||
+        user.name.trim().toLowerCase() === normalizedIdentifier,
     )
 
     if (!existingUser) {
-      return { ok: false, message: 'No account found for this email. Please create one.' }
+      return { ok: false, message: 'No account found with that email or account name. Please create one.' }
     }
 
     if (existingUser.password && existingUser.password !== password) {
-      return { ok: false, message: 'Wrong email or password.' }
+      return { ok: false, message: 'Wrong account name/email or password.' }
     }
 
     if (!existingUser.password) {
