@@ -200,6 +200,24 @@ select {
   line-height: 1;
 }
 
+.brand-heading-inline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.brand-heading-inline .brand-mark {
+  font-size: 4.5rem;
+  line-height: 0.85;
+}
+
+.brand-heading-inline .brand-word {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
 .brand-logo {
   width: 44px;
   height: 44px;
