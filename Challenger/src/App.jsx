@@ -29,6 +29,9 @@ const ACCOUNT_STORE_KEY = 'challenger_account_store'
 const POSTS_KEY = 'challenger_posts'
 const STORIES_KEY = 'challenger_stories'
 const MESSAGES_KEY = 'challenger_messages'
+const NOTIFICATIONS_KEY = 'challenger_notifications'
+const POST_TYPE_HOME = 'home'
+const POST_TYPE_CHALLENGE = 'challenge'
 
 const initialStories = postsData.slice(0, 5).map((post) => ({
   id: post.id,
@@ -49,6 +52,30 @@ function normalizeStories(stories) {
     createdAt: story.createdAt || new Date().toISOString(),
     musicUrl: story.musicUrl || null,
     musicName: story.musicName || '',
+  }))
+}
+
+function inferPostType(post) {
+  if (post?.postType === POST_TYPE_HOME || post?.postType === POST_TYPE_CHALLENGE) {
+    return post.postType
+  }
+
+  const challengeTitle = String(post?.challengeTitle || '').toLowerCase()
+  if (
+    Number(post?.challengeVotes || 0) > 0
+    || challengeTitle.includes('challenge')
+    || challengeTitle.includes('entry')
+  ) {
+    return POST_TYPE_CHALLENGE
+  }
+
+  return POST_TYPE_HOME
+}
+
+function normalizePosts(posts) {
+  return (posts || []).map((post) => ({
+    ...post,
+    postType: inferPostType(post),
   }))
 }
 
@@ -237,7 +264,7 @@ export default function App() {
     return localStorage.getItem(ACTIVE_TAB_KEY) || 'home'
   })
   const [users, setUsers] = useState(() => mergeUsersByIdAndEmail(readStoredUsers(USERS_KEY), readStoredUsers(ACCOUNT_STORE_KEY), usersData))
-  const [posts, setPosts] = useState(() => readStoredJson(POSTS_KEY, postsData))
+  const [posts, setPosts] = useState(() => normalizePosts(readStoredJson(POSTS_KEY, postsData)))
   const [stories, setStories] = useState(() => {
     const stored = readStoredJson(STORIES_KEY, null)
     if (!stored || !stored.length) return normalizeStories(initialStories)
@@ -252,6 +279,7 @@ export default function App() {
   const [votedPosts, setVotedPosts] = useState([])
   const [currentUserId, setCurrentUserId] = useState(readSessionUserId)
   const [messages, setMessages] = useState(() => readStoredJson(MESSAGES_KEY, messagesData))
+  const [notifications, setNotifications] = useState(() => readStoredJson(NOTIFICATIONS_KEY, []))
   const [selectedChatUserId, setSelectedChatUserId] = useState(2)
   const [theme, setTheme] = useState(() => localStorage.getItem(THEME_KEY) || 'light')
   const [apiMode, setApiMode] = useState('probing')
@@ -261,6 +289,8 @@ export default function App() {
   const [viewingUserId, setViewingUserId] = useState(() => readSessionUserId() || null)
 
   const currentUser = users.find((user) => user.id === currentUserId) || null
+  const homePosts = posts.filter((post) => inferPostType(post) === POST_TYPE_HOME)
+  const challengePosts = posts.filter((post) => inferPostType(post) === POST_TYPE_CHALLENGE)
 
   useEffect(() => {
     document.body.classList.toggle('theme-dark', theme === 'dark')
@@ -269,7 +299,7 @@ export default function App() {
 
   function applyRemoteState(remoteState) {
     setUsers((currentUsers) => mergeUsers(currentUsers, remoteState.users || []))
-    setPosts(Array.isArray(remoteState.posts) ? remoteState.posts : [])
+    setPosts(normalizePosts(Array.isArray(remoteState.posts) ? remoteState.posts : []))
     setStories(normalizeStories(Array.isArray(remoteState.stories) ? remoteState.stories : []))
     setMessages(Array.isArray(remoteState.messages) ? remoteState.messages : [])
     setApiMode('online')
@@ -345,6 +375,20 @@ export default function App() {
   }, [apiMode, hasHydratedRemote, posts])
 
   useEffect(() => {
+    localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(notifications))
+  }, [notifications])
+
+  function appendNotifications(nextItems) {
+    const items = Array.isArray(nextItems) ? nextItems : [nextItems]
+    const validItems = items.filter(Boolean)
+    if (!validItems.length) {
+      return
+    }
+
+    setNotifications((currentItems) => [...validItems, ...currentItems].slice(0, 300))
+  }
+
+  useEffect(() => {
     localStorage.setItem(STORIES_KEY, JSON.stringify(stories))
     if (apiMode === 'online' && hasHydratedRemote) {
       syncRemoteStories(stories).catch(() => {})
@@ -378,6 +422,7 @@ export default function App() {
   }
 
   function handleLike(postId) {
+    const targetPost = posts.find((post) => post.id === postId)
     const alreadyLiked = likedPosts.includes(postId)
 
     setLikedPosts((prev) =>
@@ -388,10 +433,35 @@ export default function App() {
       ...post,
       likes: alreadyLiked ? Math.max(0, post.likes - 1) : post.likes + 1,
     }))
+
+    if (!alreadyLiked && targetPost && targetPost.userId !== currentUser?.id) {
+      appendNotifications({
+        id: Date.now() + Math.random(),
+        type: 'like',
+        actorId: currentUser?.id,
+        targetUserId: targetPost.userId,
+        postId,
+        challengeTitle: targetPost.challengeTitle || '',
+        createdAt: new Date().toISOString(),
+      })
+    }
   }
 
   function handleComment(postId) {
+    const targetPost = posts.find((post) => post.id === postId)
     updatePost(postId, (post) => ({ ...post, comments: post.comments + 1 }))
+
+    if (targetPost && targetPost.userId !== currentUser?.id) {
+      appendNotifications({
+        id: Date.now() + Math.random(),
+        type: 'comment',
+        actorId: currentUser?.id,
+        targetUserId: targetPost.userId,
+        postId,
+        challengeTitle: targetPost.challengeTitle || '',
+        createdAt: new Date().toISOString(),
+      })
+    }
   }
 
   function handleShare(postId) {
@@ -420,6 +490,19 @@ export default function App() {
             : user,
         ),
       )
+
+      if (postOwnerId !== currentUser?.id) {
+        const targetPost = posts.find((post) => post.id === postId)
+        appendNotifications({
+          id: Date.now() + Math.random(),
+          type: 'vote',
+          actorId: currentUser?.id,
+          targetUserId: postOwnerId,
+          postId,
+          challengeTitle: targetPost?.challengeTitle || '',
+          createdAt: new Date().toISOString(),
+        })
+      }
     }
   }
 
@@ -609,7 +692,9 @@ export default function App() {
     ])
   }
 
-  function handleCreatePost({ text, mediaType, mediaUrl, challengeTitle }) {
+  function handleCreatePost({ text, mediaType, mediaUrl, challengeTitle, postType }) {
+    const resolvedPostType = postType === POST_TYPE_CHALLENGE ? POST_TYPE_CHALLENGE : POST_TYPE_HOME
+
     setPosts((currentPosts) => {
       const nextId = currentPosts.reduce((maxId, post) => Math.max(maxId, post.id), 0) + 1
       return [
@@ -625,10 +710,26 @@ export default function App() {
           shares: 0,
           challengeVotes: 0,
           challengeTitle,
+          postType: resolvedPostType,
         },
         ...currentPosts,
       ]
     })
+
+    if (resolvedPostType === POST_TYPE_CHALLENGE && currentUser) {
+      appendNotifications(
+        users
+          .filter((user) => user.id !== currentUser.id)
+          .map((user) => ({
+            id: Date.now() + Math.random() + user.id,
+            type: 'new-challenge',
+            actorId: currentUser.id,
+            targetUserId: user.id,
+            challengeTitle: challengeTitle || 'New Challenge',
+            createdAt: new Date().toISOString(),
+          })),
+      )
+    }
   }
 
   function handleCreateStory({ text, mediaType, mediaUrl, challengeTitle, musicUrl, musicName }) {
@@ -662,6 +763,7 @@ export default function App() {
               challengeTitle: nextValues.challengeTitle,
               mediaType: nextValues.mediaType,
               mediaUrl: nextValues.mediaUrl,
+              postType: nextValues.postType || post.postType || inferPostType(post),
             }
           : post,
       ),
@@ -792,7 +894,8 @@ export default function App() {
           <HomePage
             currentUser={currentUser}
             users={users}
-            posts={posts}
+            posts={homePosts}
+            challengePosts={challengePosts}
             stories={stories}
             likedPosts={likedPosts}
             votedPosts={votedPosts}
@@ -816,7 +919,7 @@ export default function App() {
           <ChallengesPage
             currentUser={currentUser}
             users={users}
-            posts={posts}
+            posts={challengePosts}
             votedPosts={votedPosts}
             onVote={handleVote}
             onCreatePost={handleCreatePost}
@@ -825,7 +928,7 @@ export default function App() {
         )}
 
         {activeTab === 'notifications' && (
-          <NotificationsPage currentUser={currentUser} users={users} posts={posts} messages={messages} />
+          <NotificationsPage currentUser={currentUser} users={users} posts={posts} messages={messages} notifications={notifications} />
         )}
         {activeTab === 'messages' && (
           <MessagesPage

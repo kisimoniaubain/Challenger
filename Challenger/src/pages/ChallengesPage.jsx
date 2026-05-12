@@ -86,6 +86,7 @@ export default function ChallengesPage({
       text: nextText,
       mediaType,
       mediaUrl,
+      postType: 'challenge',
     })
 
     // If upload failed and we are using a local blob URL, keep it alive for the saved post.

@@ -15,6 +15,7 @@ export default function HomePage({
   currentUser,
   users,
   posts,
+  challengePosts,
   stories,
   likedPosts,
   votedPosts,
@@ -239,6 +240,7 @@ export default function HomePage({
       mediaUrl,
       musicUrl: composerMode === 'story' ? musicUrl : null,
       musicName: composerMode === 'story' ? musicName : '',
+      postType: 'home',
     }
 
     if (editingTarget?.kind === 'post') {
@@ -376,7 +378,7 @@ export default function HomePage({
         {/* Active challenges */}
         <div className="fb-widget">
           <h4 className="fb-widget-title">Active Challenges</h4>
-          {posts.map((post) => {
+          {(challengePosts || []).map((post) => {
             const author = users.find((u) => u.id === post.userId)
             return (
               <button
