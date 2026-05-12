@@ -1,0 +1,21 @@
+
+> challenger@1.0.0 dev
+> concurrently "npm run server" "vite"
+
+[0] 
+[0] > challenger@1.0.0 server
+[0] > node server/index.js
+[0] 
+[0] (node:11252) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+[0] (Use `node --trace-warnings ...` to show where the warning was created)
+[1] Port 5173 is in use, trying another one...
+[1] 
+[1]   [32m[1mVITE[22m v5.4.21[39m  [2mready in [0m[1m480[22m[2m[0m ms[22m
+[1] 
+[1]   [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m5174[22m/[39m
+[1]   [32m➜[39m  [1mNetwork[22m: [36mhttp://192.168.1.243:[1m5174[22m/[39m
+[0] Challenger server running on http://localhost:3001
+[0] ^C^CTerminate batch job (Y/N)? 
+[1] ^C
+[1] vite exited with code 3221225786
+[0] npm run server exited with code 3221225786
