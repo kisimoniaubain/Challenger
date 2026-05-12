@@ -1,6 +1,6 @@
 import { getAvatar } from '../utils/avatar'
 
-export default function MenuPage({ onTabChange, onNavigate, currentUser, theme, onToggleTheme }) {
+export default function MenuPage({ onTabChange, onNavigate, currentUser, theme, onToggleTheme, onLogout }) {
   const menuItems = [
     {
       id: 'home',
@@ -43,8 +43,8 @@ export default function MenuPage({ onTabChange, onNavigate, currentUser, theme, 
     },
     {
       id: 'theme',
-      label: `Theme: ${theme === 'dark' ? 'Dark' : 'Light'}`,
-      icon: 'fa-solid fa-palette',
+      label: theme === 'dark' ? 'Dark' : 'Light',
+      icon: theme === 'dark' ? 'fa-solid fa-moon' : 'fa-solid fa-sun',
       action: () => onToggleTheme?.(),
     },
   ]
@@ -75,6 +75,15 @@ export default function MenuPage({ onTabChange, onNavigate, currentUser, theme, 
           </nav>
         </div>
 
+        {/* User Info Card */}
+        <div className="menu-user-card">
+          <img src={getAvatar(currentUser)} alt={currentUser.name} />
+          <div>
+            <h4>{currentUser.name}</h4>
+            <p>{currentUser.email}</p>
+          </div>
+        </div>
+
         {/* Settings Section */}
         <div className="menu-section">
           <h3 className="menu-section-title">Settings</h3>
@@ -93,14 +102,17 @@ export default function MenuPage({ onTabChange, onNavigate, currentUser, theme, 
           </nav>
         </div>
 
-        {/* User Info Card */}
-        <div className="menu-user-card">
-          <img src={getAvatar(currentUser)} alt={currentUser.name} />
-          <div>
-            <h4>{currentUser.name}</h4>
-            <p>{currentUser.email}</p>
-          </div>
-        </div>
+        {/* Logout Button */}
+        <button
+          className="btn-danger menu-logout"
+          onClick={() => {
+            if (confirm('Are you sure you want to log out?')) {
+              onLogout?.()
+            }
+          }}
+        >
+          <i className="fa-solid fa-sign-out-alt" aria-hidden="true" /> Log Out
+        </button>
       </div>
     </section>
   )

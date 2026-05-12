@@ -1,5 +1,5 @@
 const API_BASE_STORAGE_KEY = 'challenger_api_base_url'
-const LOCKED_API_BASE = (import.meta.env.VITE_API_BASE_URL || '').trim()
+const LOCKED_API_BASE = (import.meta.env.VITE_LOCKED_API_BASE_URL || '').trim()
 
 function getApiBaseCandidates() {
   if (LOCKED_API_BASE) {
@@ -13,6 +13,7 @@ function getApiBaseCandidates() {
   const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173'
 
   return [
+    `${origin}/api`,
     envBase,
     rememberedBase,
     `${origin.replace(/:\d+$/, ':3001')}/api`,
@@ -41,7 +42,17 @@ function rewriteUploadUrl(url, apiBase) {
   }
 
   const activeOrigin = apiBase.replace(/\/api$/, '')
-  return url.replace(/^https?:\/\/localhost:\d+\/uploads\//i, `${activeOrigin}/uploads/`)
+
+  if (url.startsWith('/uploads/')) {
+    return `${activeOrigin}${url}`
+  }
+
+  const uploadPathMatch = url.match(/^https?:\/\/[^/]+(\/uploads\/.+)$/i)
+  if (uploadPathMatch) {
+    return `${activeOrigin}${uploadPathMatch[1]}`
+  }
+
+  return url
 }
 
 async function requestJsonWithBase(baseUrl, path, options = {}) {

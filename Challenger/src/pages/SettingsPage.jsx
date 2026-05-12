@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-export default function SettingsPage({ currentUser, onLogout }) {
+export default function SettingsPage({ currentUser, onLogout, onDeleteAccount }) {
   const [editMode, setEditMode] = useState(false)
   const [name, setName] = useState(currentUser.name)
   const [email, setEmail] = useState(currentUser.email)
@@ -112,6 +112,16 @@ export default function SettingsPage({ currentUser, onLogout }) {
             <i className="fa-solid fa-triangle-exclamation" aria-hidden="true" /> Danger Zone
           </h3>
           <p className="option-desc">Irreversible actions</p>
+          <button
+            className="btn-danger"
+            onClick={() => {
+              if (confirm('This will permanently delete your account, posts, stories, and messages. Continue?')) {
+                onDeleteAccount?.()
+              }
+            }}
+          >
+            <i className="fa-solid fa-user-slash" aria-hidden="true" /> Delete My Account
+          </button>
           <button
             className="btn-danger"
             onClick={() => {

@@ -14,7 +14,7 @@ function parseHashParams(hashValue) {
   return new URLSearchParams(hash)
 }
 
-export default function LoginPage({ onLogin, onRegister, onGoogleLogin }) {
+export default function LoginPage({ onLogin, onRegister, onGoogleLogin, onForgotPassword }) {
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
@@ -29,6 +29,11 @@ export default function LoginPage({ onLogin, onRegister, onGoogleLogin }) {
   const [debugInfo, setDebugInfo] = useState('')
   const [runtimeGoogleClientId, setRuntimeGoogleClientId] = useState('')
   const [isRedirectSigningIn, setIsRedirectSigningIn] = useState(false)
+  const [showForgotPassword, setShowForgotPassword] = useState(false)
+  const [recoveryIdentifier, setRecoveryIdentifier] = useState('')
+  const [recoveryPassword, setRecoveryPassword] = useState('')
+  const [recoveryConfirmPassword, setRecoveryConfirmPassword] = useState('')
+  const [recoveryMessage, setRecoveryMessage] = useState('')
   const googleButtonRef = useRef(null)
   const onGoogleLoginRef = useRef(onGoogleLogin)
   const hasInitializedGoogleRef = useRef(false)
@@ -258,71 +263,135 @@ export default function LoginPage({ onLogin, onRegister, onGoogleLogin }) {
 
   function handleSubmit(event) {
     event.preventDefault()
-
+    
+    setError('')
     let result = null
 
-    if (authMode === 'register') {
-      if (!firstName.trim() || !lastName.trim()) {
-        setError('First name and surname are required.')
+    if (authMode === 'login') {
+      // Validate login fields
+      if (!email.trim()) {
+        setError('Please enter your email or account name.')
         return
       }
 
-      if (password.length < 6) {
-        setError('Password must be at least 6 characters.')
+      if (!password.trim()) {
+        setError('Please enter your password.')
         return
       }
 
-      if (password !== confirmPassword) {
-        setError('Passwords do not match.')
+      // Call login handler
+      result = onLogin?.(email.trim(), password)
+      
+      if (result && !result.ok) {
+        setError(result.message || 'Login failed. Please try again.')
         return
       }
 
-      if (!birthday) {
-        setError('Birthday is required.')
-        return
-      }
-
-      const birthdayDate = new Date(birthday)
-      const minAllowedBirthday = new Date()
-      minAllowedBirthday.setFullYear(minAllowedBirthday.getFullYear() - 13)
-      if (birthdayDate > minAllowedBirthday) {
-        setError('You must be at least 13 years old to create an account.')
-        return
-      }
-
-      if (!gender) {
-        setError('Please choose a gender.')
-        return
-      }
-
-      if (!acceptedTerms) {
-        setError('Please agree to the terms to create an account.')
-        return
-      }
-
-      result = onRegister({
-        firstName,
-        lastName,
-        name: `${firstName.trim()} ${lastName.trim()}`,
-        email,
-        password,
-         gender,
-      })
-    } else {
-      result = onLogin(email, password)
-    }
-
-    if (!result.ok) {
-      setError(result.message)
+      // Clear form on successful login
+      setEmail('')
+      setPassword('')
+      setError('')
       return
     }
 
+    // Register mode
+    if (!firstName.trim() || !lastName.trim()) {
+      setError('First name and surname are required.')
+      return
+    }
+
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters.')
+      return
+    }
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.')
+      return
+    }
+
+    if (!birthday) {
+      setError('Birthday is required.')
+      return
+    }
+
+    const birthdayDate = new Date(birthday)
+    const minAllowedBirthday = new Date()
+    minAllowedBirthday.setFullYear(minAllowedBirthday.getFullYear() - 13)
+    if (birthdayDate > minAllowedBirthday) {
+      setError('You must be at least 13 years old to create an account.')
+      return
+    }
+
+    if (!gender) {
+      setError('Please choose a gender.')
+      return
+    }
+
+    if (!acceptedTerms) {
+      setError('Please agree to the terms to create an account.')
+      return
+    }
+
+    result = onRegister?.({
+      firstName,
+      lastName,
+      name: `${firstName.trim()} ${lastName.trim()}`,
+      email: email.trim(),
+      password,
+      gender,
+    })
+
+    if (result && !result.ok) {
+      setError(result.message || 'Registration failed. Please try again.')
+      return
+    }
+
+    // Clear form on successful registration
+    setFirstName('')
+    setLastName('')
+    setEmail('')
+    setPassword('')
+    setConfirmPassword('')
+    setBirthday('')
+    setGender('')
+    setAcceptedTerms(false)
     setError('')
   }
 
   function handleSwitchMode(nextMode) {
     setAuthMode(nextMode)
     setError('')
+    setShowForgotPassword(false)
+    setRecoveryMessage('')
+  }
+
+  function handleForgotPasswordSubmit(event) {
+    event.preventDefault()
+    setRecoveryMessage('')
+    setError('')
+
+    if (recoveryPassword.length < 6) {
+      setError('New password must be at least 6 characters.')
+      return
+    }
+
+    if (recoveryPassword !== recoveryConfirmPassword) {
+      setError('New password and confirm password do not match.')
+      return
+    }
+
+    const result = onForgotPassword?.(recoveryIdentifier, recoveryPassword)
+    if (!result?.ok) {
+      setError(result?.message || 'Unable to reset password. Please try again.')
+      return
+    }
+
+    setRecoveryMessage(result.message || 'Password updated successfully.')
+    setRecoveryIdentifier('')
+    setRecoveryPassword('')
+    setRecoveryConfirmPassword('')
+    setShowForgotPassword(false)
   }
 
   return (
@@ -377,7 +446,7 @@ export default function LoginPage({ onLogin, onRegister, onGoogleLogin }) {
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             placeholder={authMode === 'login' ? 'Email or account name' : 'Email address'}
-            required
+            autoComplete="email"
           />
 
           <label htmlFor="password">Password</label>
@@ -387,7 +456,7 @@ export default function LoginPage({ onLogin, onRegister, onGoogleLogin }) {
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             placeholder="Password"
-            required
+            autoComplete="current-password"
           />
 
           {authMode === 'register' ? (
@@ -465,6 +534,60 @@ export default function LoginPage({ onLogin, onRegister, onGoogleLogin }) {
 
           <button type="submit">{authMode === 'login' ? 'Log In' : 'Create Account'}</button>
         </form>
+
+        {authMode === 'login' ? (
+          <div className="forgot-password-block">
+            <button
+              type="button"
+              className="btn-toggle forgot-password-toggle"
+              onClick={() => {
+                setShowForgotPassword((prev) => !prev)
+                setError('')
+                setRecoveryMessage('')
+              }}
+            >
+              Forgot password?
+            </button>
+
+            {showForgotPassword ? (
+              <form className="login-form forgot-password-form" onSubmit={handleForgotPasswordSubmit}>
+                <label htmlFor="recovery-identifier">Account name or email</label>
+                <input
+                  id="recovery-identifier"
+                  type="text"
+                  value={recoveryIdentifier}
+                  onChange={(event) => setRecoveryIdentifier(event.target.value)}
+                  placeholder="Enter account name or email"
+                  required
+                />
+
+                <label htmlFor="recovery-password">New password</label>
+                <input
+                  id="recovery-password"
+                  type="password"
+                  value={recoveryPassword}
+                  onChange={(event) => setRecoveryPassword(event.target.value)}
+                  placeholder="New password"
+                  required
+                />
+
+                <label htmlFor="recovery-confirm-password">Confirm new password</label>
+                <input
+                  id="recovery-confirm-password"
+                  type="password"
+                  value={recoveryConfirmPassword}
+                  onChange={(event) => setRecoveryConfirmPassword(event.target.value)}
+                  placeholder="Confirm new password"
+                  required
+                />
+
+                <button type="submit">Reset Password</button>
+              </form>
+            ) : null}
+          </div>
+        ) : null}
+
+        {recoveryMessage ? <p className="login-hint">{recoveryMessage}</p> : null}
 
         <div className="login-mode-switch" role="tablist" aria-label="Authentication mode">
           <button

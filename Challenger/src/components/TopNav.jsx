@@ -6,7 +6,6 @@ const tabItems = [
   { id: 'challenges', label: 'Challenges', icon: 'fa-solid fa-microphone-lines' },
   { id: 'notifications', label: 'Notifications', icon: 'fa-solid fa-bell' },
   { id: 'messages', label: 'Messages', icon: 'fa-solid fa-comments' },
-  { id: 'profile', label: 'Profile', icon: 'fa-solid fa-user' },
 ]
 
 export default function TopNav({
@@ -16,14 +15,10 @@ export default function TopNav({
   users,
   posts,
   onNavigateToProfile,
-  onLogout,
   onNavigateToMenu,
 }) {
-  const [showPopover, setShowPopover] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [showSearchResults, setShowSearchResults] = useState(false)
-  const popoverRef = useRef(null)
-  const avatarBtnRef = useRef(null)
   const searchWrapRef = useRef(null)
 
   const normalizedQuery = searchQuery.trim().toLowerCase()
@@ -47,28 +42,20 @@ export default function TopNav({
         .slice(0, 5)
     : []
 
-  // Close popover when clicking outside
+  // Close search results when clicking outside
   useEffect(() => {
     function handleClickOutside(event) {
-      if (
-        popoverRef.current &&
-        !popoverRef.current.contains(event.target) &&
-        !avatarBtnRef.current.contains(event.target)
-      ) {
-        setShowPopover(false)
-      }
-
       if (searchWrapRef.current && !searchWrapRef.current.contains(event.target)) {
         setShowSearchResults(false)
       }
     }
 
-    if (showPopover || showSearchResults) {
+    if (showSearchResults) {
       document.addEventListener('mousedown', handleClickOutside)
     }
 
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [showPopover, showSearchResults])
+  }, [showSearchResults])
 
   function handleSearchUserClick(userId) {
     onNavigateToProfile?.(userId)
@@ -169,67 +156,14 @@ export default function TopNav({
               <i className="fa-solid fa-bell" aria-hidden="true" />
             </button>
 
-            {/* Avatar button → opens profile popover */}
-            <div className="avatar-popover-wrap">
-              <button
-                ref={avatarBtnRef}
-                type="button"
-                className="icon-btn avatar-icon-btn"
-                aria-label="Account menu"
-                aria-expanded={showPopover}
-                onClick={() => setShowPopover((prev) => !prev)}
-              >
-                <img src={getAvatar(currentUser)} alt={currentUser?.name} className="top-user-avatar" />
-              </button>
-
-              {showPopover && (
-                <div ref={popoverRef} className="profile-popover" role="menu">
-                  {/* User info row */}
-                  <div className="popover-user-row">
-                    <img
-                      src={getAvatar(currentUser)}
-                      alt={currentUser?.name}
-                      className="popover-avatar"
-                    />
-                    <div>
-                      <strong>{currentUser?.name}</strong>
-                      <p>{currentUser?.email}</p>
-                    </div>
-                  </div>
-
-                  <hr className="popover-divider" />
-
-                  <button
-                    type="button"
-                    className="popover-item"
-                    role="menuitem"
-                    onClick={() => { onTabChange('profile'); setShowPopover(false) }}
-                  >
-                    <i className="fa-solid fa-user" aria-hidden="true" /> View Profile
-                  </button>
-
-                  <button
-                    type="button"
-                    className="popover-item"
-                    role="menuitem"
-                    onClick={() => { onNavigateToMenu?.(); setShowPopover(false) }}
-                  >
-                    <i className="fa-solid fa-bars" aria-hidden="true" /> Menu
-                  </button>
-
-                  <hr className="popover-divider" />
-
-                  <button
-                    type="button"
-                    className="popover-item popover-item-logout"
-                    role="menuitem"
-                    onClick={() => { onLogout(); setShowPopover(false) }}
-                  >
-                    <i className="fa-solid fa-right-from-bracket" aria-hidden="true" /> Log Out
-                  </button>
-                </div>
-              )}
-            </div>
+            <button
+              type="button"
+              className="icon-btn avatar-icon-btn"
+              aria-label="Open profile"
+              onClick={() => onTabChange('profile')}
+            >
+              <img src={getAvatar(currentUser)} alt={currentUser?.name} className="top-user-avatar" />
+            </button>
           </div>
         </div>
       </div>

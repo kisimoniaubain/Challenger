@@ -25,6 +25,7 @@ const SESSION_KEY = 'challenger_session_user_id'
 const ACTIVE_TAB_KEY = 'challenger_active_tab'
 const THEME_KEY = 'challenger_theme'
 const USERS_KEY = 'challenger_users'
+const ACCOUNT_STORE_KEY = 'challenger_account_store'
 const POSTS_KEY = 'challenger_posts'
 const STORIES_KEY = 'challenger_stories'
 const MESSAGES_KEY = 'challenger_messages'
@@ -70,6 +71,137 @@ function readStoredJson(key, fallbackValue) {
   }
 }
 
+function readStoredUsers(key) {
+  const storedUsers = readStoredJson(key, [])
+  return Array.isArray(storedUsers) ? storedUsers : []
+}
+
+function normalizeIdentifierValue(value) {
+  return String(value || '').trim().toLowerCase()
+}
+
+function normalizeAccountName(value) {
+  return normalizeIdentifierValue(value).replace(/\s+/g, ' ')
+}
+
+function normalizeAccountNameCompact(value) {
+  return normalizeAccountName(value).replace(/\s+/g, '')
+}
+
+function normalizeLooseIdentifier(value) {
+  return normalizeIdentifierValue(value).replace(/[^a-z0-9]/g, '')
+}
+
+function findUserByIdentifier(users, identifier) {
+  const normalizedIdentifier = normalizeIdentifierValue(identifier)
+  if (!normalizedIdentifier) {
+    return null
+  }
+
+  const normalizedName = normalizedAccountName(identifier)
+  const normalizedNameCompact = normalizeAccountNameCompact(identifier)
+  const normalizedLoose = normalizeLooseIdentifier(identifier)
+  return users.find((user) => {
+    const userEmail = normalizeIdentifierValue(user.email)
+    const userName = normalizeAccountName(user.name)
+    const userNameCompact = normalizeAccountNameCompact(user.name)
+    const emailLocalPart = userEmail.split('@')[0] || ''
+    const userLooseName = normalizeLooseIdentifier(user.name)
+    const userLooseEmailLocal = normalizeLooseIdentifier(emailLocalPart)
+
+    return (
+      userEmail === normalizedIdentifier
+      || userName === normalizedName
+      || userNameCompact === normalizedNameCompact
+      || emailLocalPart === normalizedIdentifier
+      || userLooseName === normalizedLoose
+      || userLooseEmailLocal === normalizedLoose
+    )
+  })
+}
+
+function findBestUserByIdentifier(users, identifier, password = '') {
+  const normalizedIdentifier = normalizeIdentifierValue(identifier)
+  if (!normalizedIdentifier) {
+    return null
+  }
+
+  const normalizedPassword = String(password || '')
+  const normalizedName = normalizeAccountName(identifier)
+  const normalizedNameCompact = normalizeAccountNameCompact(identifier)
+  const normalizedLoose = normalizeLooseIdentifier(identifier)
+
+  const matches = (users || [])
+    .map((user) => {
+      const userEmail = normalizeIdentifierValue(user.email)
+      const userName = normalizeAccountName(user.name)
+      const userNameCompact = normalizeAccountNameCompact(user.name)
+      const emailLocalPart = userEmail.split('@')[0] || ''
+      const userLooseName = normalizeLooseIdentifier(user.name)
+      const userLooseEmailLocal = normalizeLooseIdentifier(emailLocalPart)
+
+      let score = 0
+      if (userEmail === normalizedIdentifier) score = 100
+      else if (userName === normalizedName) score = 90
+      else if (userNameCompact === normalizedNameCompact) score = 85
+      else if (emailLocalPart === normalizedIdentifier) score = 80
+      else if (userLooseName === normalizedLoose) score = 60
+      else if (userLooseEmailLocal === normalizedLoose) score = 55
+
+      return score > 0 ? { user, score } : null
+    })
+    .filter(Boolean)
+
+  if (!matches.length) {
+    return null
+  }
+
+  const passwordMatch = matches.find(({ user }) => String(user.password || '') === normalizedPassword)
+  if (passwordMatch) {
+    return passwordMatch.user
+  }
+
+  matches.sort((left, right) => {
+    if (right.score !== left.score) {
+      return right.score - left.score
+    }
+
+    return right.user.id - left.user.id
+  })
+
+  return matches[0].user
+}
+
+function mergeUsersByIdAndEmail(...userGroups) {
+  const mergedById = new Map()
+  const mergedByEmail = new Map()
+
+  userGroups.flat().forEach((user) => {
+    if (!user || !user.id) {
+      return
+    }
+
+    const normalizedEmail = normalizeIdentifierValue(user.email)
+    const existingById = mergedById.get(user.id)
+    const existingByEmail = normalizedEmail ? mergedByEmail.get(normalizedEmail) : null
+    const nextUser = existingById || existingByEmail || user
+
+    const mergedUser = {
+      ...nextUser,
+      ...user,
+      email: normalizedEmail || nextUser.email || '',
+    }
+
+    mergedById.set(user.id, mergedUser)
+
+    if (normalizedEmail) {
+      mergedByEmail.set(normalizedEmail, mergedUser)
+    }
+  })
+
+  return Array.from(mergedById.values()).sort((left, right) => left.id - right.id)
+}
+
 function createUserRecord(users, profile = {}) {
   const normalizedEmail = profile.email?.trim().toLowerCase()
   const nextId = users.reduce((maxId, user) => Math.max(maxId, user.id), 0) + 1
@@ -93,6 +225,10 @@ function createUserRecord(users, profile = {}) {
   }
 }
 
+function mergeUsers(localUsers, remoteUsers) {
+  return mergeUsersByIdAndEmail(localUsers, remoteUsers)
+}
+
 export default function App() {
   // Beginner-friendly state: we keep all dynamic UI data in React hooks.
   const [activeTab, setActiveTab] = useState(() => {
@@ -100,7 +236,7 @@ export default function App() {
     if (!savedUserId) return 'home'
     return localStorage.getItem(ACTIVE_TAB_KEY) || 'home'
   })
-  const [users, setUsers] = useState(() => readStoredJson(USERS_KEY, usersData))
+  const [users, setUsers] = useState(() => mergeUsersByIdAndEmail(readStoredUsers(USERS_KEY), readStoredUsers(ACCOUNT_STORE_KEY), usersData))
   const [posts, setPosts] = useState(() => readStoredJson(POSTS_KEY, postsData))
   const [stories, setStories] = useState(() => {
     const stored = readStoredJson(STORIES_KEY, null)
@@ -119,6 +255,9 @@ export default function App() {
   const [selectedChatUserId, setSelectedChatUserId] = useState(2)
   const [theme, setTheme] = useState(() => localStorage.getItem(THEME_KEY) || 'light')
   const [apiMode, setApiMode] = useState('probing')
+  const [isRemoteReady, setIsRemoteReady] = useState(false)
+  const [hasHydratedRemote, setHasHydratedRemote] = useState(false)
+  const [initialLoadTimeout, setInitialLoadTimeout] = useState(false)
   const [viewingUserId, setViewingUserId] = useState(() => readSessionUserId() || null)
 
   const currentUser = users.find((user) => user.id === currentUserId) || null
@@ -128,6 +267,16 @@ export default function App() {
     document.body.classList.toggle('theme-light', theme === 'light')
   }, [theme])
 
+  function applyRemoteState(remoteState) {
+    setUsers((currentUsers) => mergeUsers(currentUsers, remoteState.users || []))
+    setPosts(Array.isArray(remoteState.posts) ? remoteState.posts : [])
+    setStories(normalizeStories(Array.isArray(remoteState.stories) ? remoteState.stories : []))
+    setMessages(Array.isArray(remoteState.messages) ? remoteState.messages : [])
+    setApiMode('online')
+    setHasHydratedRemote(true)
+    setIsRemoteReady(true)
+  }
+
   useEffect(() => {
     let isCancelled = false
 
@@ -136,25 +285,12 @@ export default function App() {
         if (isCancelled) {
           return
         }
-
-        if (remoteState.users.length) {
-          setUsers(remoteState.users)
-        }
-        if (remoteState.posts.length) {
-          setPosts(remoteState.posts)
-        }
-        if (remoteState.stories.length) {
-          setStories(normalizeStories(remoteState.stories))
-        }
-        if (remoteState.messages.length) {
-          setMessages(remoteState.messages)
-        }
-
-        setApiMode('online')
+        applyRemoteState(remoteState)
       })
       .catch(() => {
         if (!isCancelled) {
           setApiMode('offline')
+          setIsRemoteReady(true)
         }
       })
 
@@ -164,32 +300,63 @@ export default function App() {
   }, [])
 
   useEffect(() => {
+    if (apiMode !== 'offline') {
+      return undefined
+    }
+
+    const retryTimer = window.setTimeout(() => {
+      loadRemoteState()
+        .then((remoteState) => {
+          applyRemoteState(remoteState)
+        })
+        .catch(() => {})
+    }, 6000)
+
+    return () => {
+      window.clearTimeout(retryTimer)
+    }
+  }, [apiMode])
+
+  useEffect(() => {
+    const loginTimeoutTimer = window.setTimeout(() => {
+      if (!isRemoteReady) {
+        setInitialLoadTimeout(true)
+      }
+    }, 5000)
+
+    return () => {
+      window.clearTimeout(loginTimeoutTimer)
+    }
+  }, [isRemoteReady])
+
+  useEffect(() => {
     localStorage.setItem(USERS_KEY, JSON.stringify(users))
-    if (apiMode === 'online') {
+    localStorage.setItem(ACCOUNT_STORE_KEY, JSON.stringify(users))
+    if (apiMode === 'online' && hasHydratedRemote) {
       syncRemoteUsers(users).catch(() => {})
     }
-  }, [apiMode, users])
+  }, [apiMode, hasHydratedRemote, users])
 
   useEffect(() => {
     localStorage.setItem(POSTS_KEY, JSON.stringify(posts))
-    if (apiMode === 'online') {
+    if (apiMode === 'online' && hasHydratedRemote) {
       syncRemotePosts(posts).catch(() => {})
     }
-  }, [apiMode, posts])
+  }, [apiMode, hasHydratedRemote, posts])
 
   useEffect(() => {
     localStorage.setItem(STORIES_KEY, JSON.stringify(stories))
-    if (apiMode === 'online') {
+    if (apiMode === 'online' && hasHydratedRemote) {
       syncRemoteStories(stories).catch(() => {})
     }
-  }, [apiMode, stories])
+  }, [apiMode, hasHydratedRemote, stories])
 
   useEffect(() => {
     localStorage.setItem(MESSAGES_KEY, JSON.stringify(messages))
-    if (apiMode === 'online') {
+    if (apiMode === 'online' && hasHydratedRemote) {
       syncRemoteMessages(messages).catch(() => {})
     }
-  }, [apiMode, messages])
+  }, [apiMode, hasHydratedRemote, messages])
 
   function handleTabChange(tab) {
     setActiveTab(tab)
@@ -257,12 +424,15 @@ export default function App() {
   }
 
   function handleLogin(identifier, password) {
-    const normalizedIdentifier = identifier.trim().toLowerCase()
-    const existingUser = users.find(
-      (user) =>
-        user.email.toLowerCase() === normalizedIdentifier ||
-        user.name.trim().toLowerCase() === normalizedIdentifier,
-    )
+    if (!isRemoteReady && !initialLoadTimeout) {
+      return {
+        ok: false,
+        message: 'Checking saved accounts. Please wait a few seconds and try again.',
+      }
+    }
+
+    const existingUser = findBestUserByIdentifier(users, identifier, password)
+      || findBestUserByIdentifier(readStoredUsers(ACCOUNT_STORE_KEY), identifier, password)
 
     if (!existingUser) {
       return { ok: false, message: 'No account found with that email or account name. Please create one.' }
@@ -287,6 +457,37 @@ export default function App() {
     return { ok: true }
   }
 
+  function handleForgotPassword(identifier, nextPassword) {
+    if (!isRemoteReady && !initialLoadTimeout) {
+      return {
+        ok: false,
+        message: 'Checking saved accounts. Please wait a few seconds and try again.',
+      }
+    }
+
+    const existingUser = findBestUserByIdentifier(users, identifier)
+      || findBestUserByIdentifier(readStoredUsers(ACCOUNT_STORE_KEY), identifier)
+    if (!existingUser) {
+      return {
+        ok: false,
+        message: 'No account found with that email or account name. Please create one.',
+      }
+    }
+
+    setUsers((currentUsers) =>
+      currentUsers.map((user) =>
+        user.id === existingUser.id
+          ? { ...user, password: nextPassword }
+          : user,
+      ),
+    )
+
+    return {
+      ok: true,
+      message: 'Password updated. You can now log in with your account name/email and new password.',
+    }
+  }
+
   function handleRegister(profile) {
     const normalizedEmail = profile.email.trim().toLowerCase()
     const existingUser = users.find(
@@ -302,6 +503,7 @@ export default function App() {
       email: normalizedEmail,
     })
     setUsers((currentUsers) => [...currentUsers, newUser])
+    localStorage.setItem(ACCOUNT_STORE_KEY, JSON.stringify([...users, newUser]))
     setCurrentUserId(newUser.id)
     setViewingUserId(newUser.id)
     handleTabChange('user-profile')
@@ -345,6 +547,7 @@ export default function App() {
     const newUser = createUserRecord(users, profile)
 
     setUsers((currentUsers) => [...currentUsers, newUser])
+    localStorage.setItem(ACCOUNT_STORE_KEY, JSON.stringify([...users, newUser]))
     setCurrentUserId(newUser.id)
     setViewingUserId(newUser.id)
     handleTabChange('user-profile')
@@ -353,7 +556,36 @@ export default function App() {
   }
 
   function handleLogout() {
+    // Persist current in-memory data before ending the session to make re-login reliable.
+    localStorage.setItem(USERS_KEY, JSON.stringify(users))
+    localStorage.setItem(POSTS_KEY, JSON.stringify(posts))
+    localStorage.setItem(STORIES_KEY, JSON.stringify(stories))
+    localStorage.setItem(MESSAGES_KEY, JSON.stringify(messages))
+
     setCurrentUserId(null)
+    handleTabChange('home')
+    localStorage.removeItem(SESSION_KEY)
+    localStorage.removeItem(ACTIVE_TAB_KEY)
+  }
+
+  function handleDeleteAccount() {
+    if (!currentUser) {
+      return
+    }
+
+    const accountId = currentUser.id
+    setUsers((currentUsers) => currentUsers.filter((user) => user.id !== accountId))
+    setPosts((currentPosts) => currentPosts.filter((post) => post.userId !== accountId))
+    setStories((currentStories) => currentStories.filter((story) => story.userId !== accountId))
+    setMessages((currentMessages) =>
+      currentMessages.filter(
+        (message) => message.fromUserId !== accountId && message.toUserId !== accountId,
+      ),
+    )
+
+    setCurrentUserId(null)
+    setViewingUserId(null)
+    setSelectedChatUserId(2)
     handleTabChange('home')
     localStorage.removeItem(SESSION_KEY)
     localStorage.removeItem(ACTIVE_TAB_KEY)
@@ -518,12 +750,27 @@ export default function App() {
     setViewingUserId(null)
   }
 
+  if (!currentUser && !isRemoteReady && !initialLoadTimeout) {
+    return (
+      <section className="login-page" aria-label="Preparing your account data">
+        <div className="login-card">
+          <h1 className="brand-heading brand-heading-inline">
+            <span className="brand-mark" aria-hidden="true">C</span>
+            <span className="brand-word">Challenger</span>
+          </h1>
+          <p className="login-subtitle">Checking saved accounts...</p>
+        </div>
+      </section>
+    )
+  }
+
   if (!currentUser) {
     return (
       <LoginPage
         onLogin={handleLogin}
         onRegister={handleRegister}
         onGoogleLogin={handleGoogleLogin}
+        onForgotPassword={handleForgotPassword}
       />
     )
   }
@@ -537,7 +784,6 @@ export default function App() {
         users={users}
         posts={posts}
         onNavigateToProfile={handleNavigateToUserProfile}
-        onLogout={handleLogout}
         onNavigateToMenu={handleNavigateToMenu}
       />
 
@@ -619,12 +865,14 @@ export default function App() {
             theme={theme}
             onToggleTheme={handleToggleTheme}
             currentUser={currentUser}
+            onLogout={handleLogout}
           />
         )}
         {activeTab === 'settings' && (
           <SettingsPage
             currentUser={currentUser}
             onLogout={handleLogout}
+            onDeleteAccount={handleDeleteAccount}
           />
         )}
       </main>

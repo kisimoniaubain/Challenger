@@ -41,6 +41,9 @@ export default function HomePage({
   const [mediaUrl, setMediaUrl] = useState(null)
   const [musicUrl, setMusicUrl] = useState(null)
   const [musicName, setMusicName] = useState('')
+  const [isMediaUploading, setIsMediaUploading] = useState(false)
+  const [isMusicUploading, setIsMusicUploading] = useState(false)
+  const [uploadError, setUploadError] = useState('')
   const previewBlobUrlRef = useRef(null)
   const musicPreviewBlobUrlRef = useRef(null)
 
@@ -60,6 +63,15 @@ export default function HomePage({
     }
   }
 
+  function readFileAsDataUrl(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(String(reader.result || ''))
+      reader.onerror = () => reject(new Error('Unable to read selected file.'))
+      reader.readAsDataURL(file)
+    })
+  }
+
   useEffect(() => {
     return () => {
       clearPreviewBlobUrl()
@@ -70,6 +82,7 @@ export default function HomePage({
   function openComposer(mode) {
     setComposerMode(mode)
     setEditingTarget(null)
+    setUploadError('')
     setComposerOpen(true)
   }
 
@@ -82,6 +95,7 @@ export default function HomePage({
     setMediaUrl(post.mediaUrl || null)
     setMusicUrl(null)
     setMusicName('')
+    setUploadError('')
     setComposerOpen(true)
   }
 
@@ -94,6 +108,7 @@ export default function HomePage({
     setMediaUrl(story.mediaUrl || null)
     setMusicUrl(story.musicUrl || null)
     setMusicName(story.musicName || '')
+    setUploadError('')
     setComposerOpen(true)
   }
 
@@ -108,6 +123,9 @@ export default function HomePage({
     setMediaUrl(null)
     setMusicUrl(null)
     setMusicName('')
+    setIsMediaUploading(false)
+    setIsMusicUploading(false)
+    setUploadError('')
   }
 
   function handleMediaChange(event) {
@@ -116,6 +134,8 @@ export default function HomePage({
       clearPreviewBlobUrl()
       setMediaType(null)
       setMediaUrl(null)
+      setIsMediaUploading(false)
+      setUploadError('')
       return
     }
 
@@ -125,15 +145,28 @@ export default function HomePage({
     previewBlobUrlRef.current = previewBlobUrl
     setMediaType(nextMediaType)
     setMediaUrl(previewBlobUrl)
+    setUploadError('')
+    setIsMediaUploading(true)
 
     uploadMediaFile(file)
       .then((uploadResult) => {
         clearPreviewBlobUrl()
         setMediaUrl(uploadResult.url)
         setMediaType(nextMediaType)
+        setIsMediaUploading(false)
+        setUploadError('')
       })
       .catch(() => {
-        // Keep the local blob preview when upload fails.
+        setIsMediaUploading(false)
+        readFileAsDataUrl(file)
+          .then((localDataUrl) => {
+            clearPreviewBlobUrl()
+            setMediaUrl(localDataUrl)
+            setUploadError('Media saved locally. Start backend/server to sync this media across devices.')
+          })
+          .catch(() => {
+            setUploadError('Media upload failed. Please try another file.')
+          })
       })
   }
 
@@ -143,6 +176,8 @@ export default function HomePage({
       clearMusicPreviewBlobUrl()
       setMusicUrl(null)
       setMusicName('')
+      setIsMusicUploading(false)
+      setUploadError('')
       return
     }
 
@@ -151,22 +186,47 @@ export default function HomePage({
     musicPreviewBlobUrlRef.current = previewBlobUrl
     setMusicUrl(previewBlobUrl)
     setMusicName(file.name)
+    setUploadError('')
+    setIsMusicUploading(true)
 
     uploadMediaFile(file)
       .then((uploadResult) => {
         clearMusicPreviewBlobUrl()
         setMusicUrl(uploadResult.url)
         setMusicName(file.name)
+        setIsMusicUploading(false)
+        setUploadError('')
       })
       .catch(() => {
-        // Keep the local blob preview when upload fails.
+        setIsMusicUploading(false)
+        readFileAsDataUrl(file)
+          .then((localDataUrl) => {
+            clearMusicPreviewBlobUrl()
+            setMusicUrl(localDataUrl)
+            setUploadError('Music saved locally. Start backend/server to sync this media across devices.')
+          })
+          .catch(() => {
+            setUploadError('Music upload failed. Please try another file.')
+          })
       })
   }
 
   function handleComposerSubmit(event) {
     event.preventDefault()
-    const nextTitle = challengeTitle.trim() || (composerMode === 'story' ? 'New Challenge' : 'New Post')
-    const nextText = text.trim()
+    if (isMediaUploading || isMusicUploading) {
+      setUploadError('Please wait for uploads to finish before sharing.')
+      return
+    }
+
+    if ((mediaUrl && mediaUrl.startsWith('blob:')) || (musicUrl && musicUrl.startsWith('blob:'))) {
+      setUploadError('Upload is not finished. Retry upload so your story/post is saved on all devices.')
+      return
+    }
+
+    const nextTitle = composerMode === 'story'
+      ? (challengeTitle.trim() || 'New Story')
+      : (challengeTitle.trim() || 'New Post')
+    const nextText = composerMode === 'story' ? '' : text.trim()
 
     if (!nextText && !mediaUrl) {
       return
@@ -243,7 +303,13 @@ export default function HomePage({
       {/* ── Center feed ── */}
       <main className="fb-feed">
         {/* Composer */}
-        <div className="fb-composer">
+        <div className="fb-composer" style={{
+          backgroundImage: `url(${currentUser.coverPhoto || getAvatar(currentUser)})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundAttachment: 'fixed',
+        }}>
+          <div className="fb-composer-overlay" />
           <img src={getAvatar(currentUser)} alt={currentUser.name} className="fb-composer-avatar" />
           <button type="button" className="fb-composer-pill" onClick={() => openComposer('post')}>
             What's your challenge today, {currentUser.name.split(' ')[0]}?
@@ -253,9 +319,6 @@ export default function HomePage({
         {/* Stories */}
         <div className="stories-head">
           <h3 className="stories-title">Stories</h3>
-          <button type="button" className="stories-link-btn" onClick={() => openComposer('story')}>
-            Create new challenge
-          </button>
         </div>
         <StoryStrip
           users={users}
@@ -264,6 +327,7 @@ export default function HomePage({
           onCreateStory={() => openComposer('story')}
           onEditStory={openStoryEditor}
           onDeleteStory={onDeleteStory}
+          onNavigateToProfile={onNavigateToProfile}
         />
 
         {/* Posts */}
@@ -350,25 +414,29 @@ export default function HomePage({
             </div>
 
             <form className="composer-form" onSubmit={handleComposerSubmit}>
-              <label>
-                Title
-                <input
-                  type="text"
-                  value={challengeTitle}
-                  onChange={(event) => setChallengeTitle(event.target.value)}
-                  placeholder={composerMode === 'story' ? 'Challenge title' : 'Post title'}
-                />
-              </label>
+              {composerMode !== 'story' ? (
+                <>
+                  <label>
+                    Title
+                    <input
+                      type="text"
+                      value={challengeTitle}
+                      onChange={(event) => setChallengeTitle(event.target.value)}
+                      placeholder="Post title"
+                    />
+                  </label>
 
-              <label>
-                Caption
-                <textarea
-                  value={text}
-                  onChange={(event) => setText(event.target.value)}
-                  placeholder={composerMode === 'story' ? 'Say something about your challenge' : 'Write something to post'}
-                  rows={5}
-                />
-              </label>
+                  <label>
+                    Caption
+                    <textarea
+                      value={text}
+                      onChange={(event) => setText(event.target.value)}
+                      placeholder="Write something to post"
+                      rows={5}
+                    />
+                  </label>
+                </>
+              ) : null}
 
               <label>
                 Upload image or video
@@ -399,11 +467,13 @@ export default function HomePage({
                 </div>
               ) : null}
 
+              {uploadError ? <p className="composer-upload-error">{uploadError}</p> : null}
+
               <div className="composer-actions">
                 <button type="button" className="composer-secondary-btn" onClick={closeComposer}>
                   Cancel
                 </button>
-                <button type="submit" className="composer-primary-btn">
+                <button type="submit" className="composer-primary-btn" disabled={isMediaUploading || isMusicUploading}>
                   {editingTarget
                     ? 'Save Changes'
                     : composerMode === 'story'

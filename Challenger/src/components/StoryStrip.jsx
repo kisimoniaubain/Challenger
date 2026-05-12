@@ -18,6 +18,7 @@ export default function StoryStrip({
   onCreateStory,
   onEditStory,
   onDeleteStory,
+  onNavigateToProfile,
 }) {
   const [activeGroupIndex, setActiveGroupIndex] = useState(null)
   const [activeStoryIndex, setActiveStoryIndex] = useState(null)
@@ -217,18 +218,36 @@ export default function StoryStrip({
     <>
       <section className="stories-strip" aria-label="Active challenges">
       <div className="stories-row">
-        {/* Create challenge card */}
-        <div className="story-card story-card-create" role="button" tabIndex={0} onClick={onCreateStory} onKeyDown={(event) => {
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault()
-            onCreateStory()
-          }
-        }}>
-          <div className="story-card-bg story-card-create-bg">
-            <i className="fa-solid fa-plus story-add-icon" aria-hidden="true" />
+        {/* Create challenge card with user profile background */}
+        {users && users.length > 0 && (
+          <div
+            className="story-card story-card-create"
+            role="button"
+            tabIndex={0}
+            onClick={onCreateStory}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault()
+                onCreateStory()
+              }
+            }}
+          >
+            <div className="story-card-bg story-card-create-bg">
+              <img
+                src={getAvatar(users.find(u => u.id === currentUserId))}
+                alt="Your profile"
+                className="story-profile-cover"
+              />
+              <div className="story-create-overlay">
+                <div className="story-create-content">
+                  <i className="fa-solid fa-plus story-add-icon" aria-hidden="true" />
+                  <p className="story-create-text">Create a story</p>
+                </div>
+              </div>
+            </div>
+            <p className="story-label">Your Story</p>
           </div>
-          <p className="story-label">Create Story</p>
-        </div>
+        )}
 
         {userStoryGroups.map((group, groupIndex) => {
           return (
@@ -246,7 +265,17 @@ export default function StoryStrip({
               }}
             >
               <div className="story-card-bg">
-                {group.latestStory.mediaType === 'video' && group.latestStory.mediaUrl ? (
+                <div
+                  className="story-card-bg"
+                  style={{
+                    backgroundImage: `url(${getAvatar(group.author)})`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                    filter: 'blur(8px)',
+                  }}
+                  aria-hidden="true"
+                />
+                {group.latestStory.mediaType === 'video' ? (
                   <video className="story-card-video" src={group.latestStory.mediaUrl} muted playsInline />
                 ) : (
                   <div
@@ -254,10 +283,29 @@ export default function StoryStrip({
                     style={
                       group.latestStory.mediaUrl
                         ? { backgroundImage: `url(${group.latestStory.mediaUrl})` }
-                        : { background: 'linear-gradient(160deg, #1877f2 0%, #42a5f5 100%)' }
+                        : { background: 'transparent' }
                     }
                   />
                 )}
+                <div
+                  className="story-card-header"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onNavigateToProfile && onNavigateToProfile(group.author?.id)
+                  }}
+                  role="button"
+                  tabIndex={-1}
+                >
+                  <img
+                    src={getAvatar(group.author)}
+                    alt={group.author?.name}
+                    className="story-card-header-avatar"
+                  />
+                  <div className="story-card-header-info">
+                    <p className="story-card-header-name">{group.author?.name}</p>
+                    <p className="story-card-header-small">{group.author?.email?.split('@')[0]}</p>
+                  </div>
+                </div>
                 <img
                   src={getAvatar(group.author)}
                   alt={group.author?.name}
@@ -302,7 +350,18 @@ export default function StoryStrip({
               <i className="fa-solid fa-xmark" aria-hidden="true" />
             </button>
 
-            <div className="story-viewer-head">
+            <div
+              className="story-viewer-head"
+              onClick={() => onNavigateToProfile && onNavigateToProfile(activeAuthor?.id)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault()
+                  onNavigateToProfile && onNavigateToProfile(activeAuthor?.id)
+                }
+              }}
+            >
               <img
                 src={getAvatar(activeAuthor)}
                 alt={activeAuthor?.name}
@@ -374,7 +433,6 @@ export default function StoryStrip({
                   }
                 />
               )}
-              <p className="story-viewer-title">{activeStory.challengeTitle}</p>
 
               {activeStory.musicUrl ? (
                 <div className="story-music-bar">

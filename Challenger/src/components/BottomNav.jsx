@@ -3,7 +3,6 @@ const navItems = [
   { id: 'challenges', label: 'Challenges', icon: 'fa-solid fa-microphone-lines' },
   { id: 'notifications', label: 'Notifications', icon: 'fa-solid fa-bell' },
   { id: 'messages', label: 'Messages', icon: 'fa-solid fa-comments' },
-  { id: 'profile', label: 'Profile', icon: 'fa-solid fa-user' },
 ]
 
 export default function BottomNav({ activeTab, onTabChange }) {

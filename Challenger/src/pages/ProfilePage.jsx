@@ -13,6 +13,7 @@ export default function ProfilePage({
   const postCount = userPosts.length
   const followerCount = Math.floor(Math.random() * 500) + 50
   const [activeTab, setActiveTab] = useState('posts')
+  const [uploadError, setUploadError] = useState('')
 
   function readFileAsDataUrl(file) {
     return new Promise((resolve, reject) => {
@@ -23,25 +24,19 @@ export default function ProfilePage({
     })
   }
 
-  function loadImage(url) {
-    return new Promise((resolve, reject) => {
-      const image = new Image()
-      image.onload = () => resolve(url)
-      image.onerror = () => reject(new Error('Unable to load image preview.'))
-      image.src = url
-    })
-  }
-
   async function updateImage(file, onSuccess) {
     try {
+      setUploadError('')
       const previewUrl = await readFileAsDataUrl(file)
       onSuccess?.(previewUrl)
 
       const uploadResult = await uploadMediaFile(file)
-      await loadImage(uploadResult.url)
+      if (!uploadResult?.url) {
+        throw new Error('Upload returned no URL.')
+      }
       onSuccess?.(uploadResult.url)
     } catch {
-      // Keep the local preview if remote upload or image loading fails.
+      setUploadError('Photo updated locally. Start backend/server to sync this photo across devices.')
     }
   }
 
@@ -114,6 +109,7 @@ export default function ProfilePage({
           </div>
 
           <p className="profile-email">{currentUser.email}</p>
+          {uploadError ? <p className="composer-upload-error">{uploadError}</p> : null}
 
           {/* Stats Row */}
           <div className="profile-stats">
