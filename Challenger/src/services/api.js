@@ -107,6 +107,12 @@ export async function loadRemoteState() {
   }))
   const normalizedPosts = posts.map((post) => ({
     ...post,
+    mediaItems: Array.isArray(post.mediaItems)
+      ? post.mediaItems.map((item) => ({
+        ...item,
+        url: rewriteUploadUrl(item.url, connectedApiBase),
+      }))
+      : [],
     mediaUrl: rewriteUploadUrl(post.mediaUrl, connectedApiBase),
   }))
   const normalizedStories = stories.map((story) => ({

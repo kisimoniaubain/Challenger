@@ -11,6 +11,45 @@ const sideLinks = [
   { id: 'profile', label: 'My Profile', icon: 'fa-solid fa-user' },
 ]
 
+const STORY_MUSIC_CATEGORIES = [
+  {
+    key: 'trending',
+    label: 'Trending',
+    tracks: [
+      { id: 'trend-1', name: 'Viral Pop Pulse', artist: 'Ava Hart', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3' },
+      { id: 'trend-2', name: 'Sunset City Lights', artist: 'Milo Rivers', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3' },
+      { id: 'trend-3', name: 'Midnight Storyline', artist: 'Zara Bloom', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3' },
+    ],
+  },
+  {
+    key: 'afrobeat',
+    label: 'Afrobeat',
+    tracks: [
+      { id: 'afro-1', name: 'Lagos Vibe', artist: 'Kofi Blaze', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3' },
+      { id: 'afro-2', name: 'Dance in Nairobi', artist: 'Nia Star', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3' },
+      { id: 'afro-3', name: 'Drumline Heat', artist: 'Tempo King', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3' },
+    ],
+  },
+  {
+    key: 'gospel',
+    label: 'Gospel',
+    tracks: [
+      { id: 'gospel-1', name: 'Grace Anthem', artist: 'Mercy Choir', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3' },
+      { id: 'gospel-2', name: 'Faith Rising', artist: 'Rehema Voice', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3' },
+      { id: 'gospel-3', name: 'Morning Praise', artist: 'Hope Collective', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-9.mp3' },
+    ],
+  },
+  {
+    key: 'hiphop',
+    label: 'Hip-Hop',
+    tracks: [
+      { id: 'hiphop-1', name: 'Street Story', artist: 'Jay Knox', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3' },
+      { id: 'hiphop-2', name: 'No Limits', artist: 'Rico Verse', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-11.mp3' },
+      { id: 'hiphop-3', name: 'Late Night Bars', artist: 'Kali Rhymes', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-12.mp3' },
+    ],
+  },
+]
+
 export default function HomePage({
   currentUser,
   users,
@@ -32,29 +71,34 @@ export default function HomePage({
   onOpenChat,
   onTabChange,
   onNavigateToProfile,
+  openStoryComposerSignal,
+  onStoryReaction,
+  t,
 }) {
+  const tx = t || ((value) => value)
   const [composerOpen, setComposerOpen] = useState(false)
   const [composerMode, setComposerMode] = useState('post')
   const [editingTarget, setEditingTarget] = useState(null)
   const [challengeTitle, setChallengeTitle] = useState('')
   const [text, setText] = useState('')
-  const [mediaType, setMediaType] = useState(null)
-  const [mediaUrl, setMediaUrl] = useState(null)
+  const [mediaItems, setMediaItems] = useState([])
   const [musicUrl, setMusicUrl] = useState(null)
   const [musicName, setMusicName] = useState('')
   const [isMediaUploading, setIsMediaUploading] = useState(false)
   const [isMusicUploading, setIsMusicUploading] = useState(false)
   const [uploadError, setUploadError] = useState('')
-  const previewBlobUrlRef = useRef(null)
+  const [activeMusicCategory, setActiveMusicCategory] = useState(STORY_MUSIC_CATEGORIES[0].key)
+  const mediaPreviewBlobUrlsRef = useRef({})
   const musicPreviewBlobUrlRef = useRef(null)
+  const composerMusicInputRef = useRef(null)
 
   const topChallengers = [...users].sort((a, b) => b.totalVotes - a.totalVotes).slice(0, 4)
 
-  function clearPreviewBlobUrl() {
-    if (previewBlobUrlRef.current) {
-      URL.revokeObjectURL(previewBlobUrlRef.current)
-      previewBlobUrlRef.current = null
-    }
+  function clearMediaPreviewBlobUrls() {
+    Object.values(mediaPreviewBlobUrlsRef.current).forEach((url) => {
+      URL.revokeObjectURL(url)
+    })
+    mediaPreviewBlobUrlsRef.current = {}
   }
 
   function clearMusicPreviewBlobUrl() {
@@ -75,10 +119,18 @@ export default function HomePage({
 
   useEffect(() => {
     return () => {
-      clearPreviewBlobUrl()
+      clearMediaPreviewBlobUrls()
       clearMusicPreviewBlobUrl()
     }
   }, [])
+
+  useEffect(() => {
+    if (!openStoryComposerSignal) {
+      return
+    }
+
+    openComposer('story')
+  }, [openStoryComposerSignal])
 
   function openComposer(mode) {
     setComposerMode(mode)
@@ -92,8 +144,13 @@ export default function HomePage({
     setEditingTarget({ kind: 'post', id: post.id })
     setChallengeTitle(post.challengeTitle || '')
     setText(post.text || '')
-    setMediaType(post.mediaType || null)
-    setMediaUrl(post.mediaUrl || null)
+    const postMediaItems = (post.mediaItems || []).map((item) => ({
+      id: Date.now() + Math.random(),
+      type: item.type,
+      url: item.url,
+      isUploading: false,
+    }))
+    setMediaItems(postMediaItems)
     setMusicUrl(null)
     setMusicName('')
     setUploadError('')
@@ -105,68 +162,188 @@ export default function HomePage({
     setEditingTarget({ kind: 'story', id: story.id })
     setChallengeTitle(story.challengeTitle || '')
     setText(story.text || '')
-    setMediaType(story.mediaType || null)
-    setMediaUrl(story.mediaUrl || null)
+    const storyMediaItems = (story.mediaItems || []).map((item) => ({
+      id: Date.now() + Math.random(),
+      type: item.type,
+      url: item.url,
+      isUploading: false,
+    }))
+    setMediaItems(storyMediaItems)
     setMusicUrl(story.musicUrl || null)
     setMusicName(story.musicName || '')
     setUploadError('')
     setComposerOpen(true)
   }
 
-  function closeComposer() {
-    clearPreviewBlobUrl()
+  function resetComposerFields() {
+    clearMediaPreviewBlobUrls()
     clearMusicPreviewBlobUrl()
-    setComposerOpen(false)
     setEditingTarget(null)
     setChallengeTitle('')
     setText('')
-    setMediaType(null)
-    setMediaUrl(null)
+    setMediaItems([])
     setMusicUrl(null)
     setMusicName('')
     setIsMediaUploading(false)
     setIsMusicUploading(false)
+    setActiveMusicCategory(STORY_MUSIC_CATEGORIES[0].key)
+    setUploadError('')
+  }
+
+  function closeComposer() {
+    resetComposerFields()
+    setComposerOpen(false)
+  }
+
+  function handleSelectSuggestedMusic(track) {
+    if (!track?.url) {
+      return
+    }
+
+    clearMusicPreviewBlobUrl()
+    setMusicUrl(track.url)
+    setMusicName(track.name)
+    setUploadError('')
+  }
+
+  function handleMusicFromBrowser() {
+    const browserUrl = window.prompt('Paste audio URL from browser (mp3/wav/ogg):', musicUrl || '')
+    if (!browserUrl || !browserUrl.trim()) {
+      return
+    }
+
+    const nextUrl = browserUrl.trim()
+    if (!/^https?:\/\//i.test(nextUrl)) {
+      setUploadError('Please enter a valid browser audio URL starting with http:// or https://')
+      return
+    }
+
+    const fileName = decodeURIComponent(nextUrl.split('/').pop()?.split('?')[0] || 'Browser audio')
+    clearMusicPreviewBlobUrl()
+    setMusicUrl(nextUrl)
+    setMusicName(fileName)
     setUploadError('')
   }
 
   function handleMediaChange(event) {
-    const file = event.target.files?.[0]
-    if (!file) {
-      clearPreviewBlobUrl()
-      setMediaType(null)
-      setMediaUrl(null)
-      setIsMediaUploading(false)
-      setUploadError('')
+    const files = event.target.files
+    if (!files || files.length === 0) {
       return
     }
 
+    setIsMediaUploading(true)
+    const newItems = []
+    let uploadedCount = 0
+    const totalFiles = files.length
+
+    Array.from(files).forEach((file) => {
+      const mediaType = file.type.startsWith('video/') ? 'video' : 'image'
+      const previewBlobUrl = URL.createObjectURL(file)
+      const tempId = Date.now() + Math.random()
+
+      mediaPreviewBlobUrlsRef.current[tempId] = previewBlobUrl
+      newItems.push({
+        id: tempId,
+        type: mediaType,
+        url: previewBlobUrl,
+        isUploading: true,
+      })
+
+      function markUploadComplete() {
+        uploadedCount += 1
+        if (uploadedCount === totalFiles) {
+          setIsMediaUploading(false)
+        }
+      }
+
+      uploadMediaFile(file)
+        .then((uploadResult) => {
+          setMediaItems((current) =>
+            current.map((item) =>
+              item.id === tempId
+                ? { ...item, url: uploadResult.url, isUploading: false }
+                : item,
+            ),
+          )
+          markUploadComplete()
+        })
+        .catch((uploadError) => {
+          readFileAsDataUrl(file)
+            .then((localDataUrl) => {
+              setMediaItems((current) =>
+                current.map((item) =>
+                  item.id === tempId
+                    ? { ...item, url: localDataUrl, isUploading: false }
+                    : item,
+                ),
+              )
+              setUploadError('Media saved locally. Start backend/server to sync this media across devices.')
+              markUploadComplete()
+            })
+            .catch((readError) => {
+              setMediaItems((current) => current.filter((item) => item.id !== tempId))
+              setUploadError('Media upload failed. Please try another file.')
+              markUploadComplete()
+            })
+        })
+    })
+
+    setMediaItems((current) => [...current, ...newItems])
+    setUploadError('')
+  }
+
+  function removeMediaItem(itemId) {
+    if (mediaPreviewBlobUrlsRef.current[itemId]) {
+      URL.revokeObjectURL(mediaPreviewBlobUrlsRef.current[itemId])
+      delete mediaPreviewBlobUrlsRef.current[itemId]
+    }
+    setMediaItems((current) => current.filter((item) => item.id !== itemId))
+  }
+
+  function handleCreateStoryFromCamera(file) {
+    if (!file) {
+      openComposer('story')
+      return
+    }
+
+    setComposerMode('story')
+    setEditingTarget(null)
+    setChallengeTitle('')
+    setText('')
+    setMediaItems([])
+    setMusicUrl(null)
+    setMusicName('')
+    setUploadError('')
+    setComposerOpen(true)
+
     const nextMediaType = file.type.startsWith('video/') ? 'video' : 'image'
     const previewBlobUrl = URL.createObjectURL(file)
-    clearPreviewBlobUrl()
-    previewBlobUrlRef.current = previewBlobUrl
-    setMediaType(nextMediaType)
-    setMediaUrl(previewBlobUrl)
-    setUploadError('')
+    clearMediaPreviewBlobUrls()
+    const tempId = Date.now()
+    mediaPreviewBlobUrlsRef.current[tempId] = previewBlobUrl
+    setMediaItems([{ id: tempId, type: nextMediaType, url: previewBlobUrl, isUploading: true }])
     setIsMediaUploading(true)
 
     uploadMediaFile(file)
       .then((uploadResult) => {
-        clearPreviewBlobUrl()
-        setMediaUrl(uploadResult.url)
-        setMediaType(nextMediaType)
+        clearMediaPreviewBlobUrls()
+        setMediaItems([{ id: tempId, type: nextMediaType, url: uploadResult.url, isUploading: false }])
         setIsMediaUploading(false)
         setUploadError('')
       })
-      .catch(() => {
-        setIsMediaUploading(false)
+      .catch((uploadError) => {
         readFileAsDataUrl(file)
           .then((localDataUrl) => {
-            clearPreviewBlobUrl()
-            setMediaUrl(localDataUrl)
-            setUploadError('Media saved locally. Start backend/server to sync this media across devices.')
+            clearMediaPreviewBlobUrls()
+            setMediaItems([{ id: tempId, type: nextMediaType, url: localDataUrl, isUploading: false }])
+            setIsMediaUploading(false)
+            setUploadError('Photo saved locally. Start backend/server to sync this media across devices.')
           })
-          .catch(() => {
-            setUploadError('Media upload failed. Please try another file.')
+          .catch((readError) => {
+            clearMediaPreviewBlobUrls()
+            setMediaItems([])
+            setIsMediaUploading(false)
+            setUploadError('Camera photo upload failed. Please try again.')
           })
       })
   }
@@ -198,15 +375,20 @@ export default function HomePage({
         setIsMusicUploading(false)
         setUploadError('')
       })
-      .catch(() => {
-        setIsMusicUploading(false)
+      .catch((uploadError) => {
         readFileAsDataUrl(file)
           .then((localDataUrl) => {
             clearMusicPreviewBlobUrl()
             setMusicUrl(localDataUrl)
+            setMusicName(file.name)
+            setIsMusicUploading(false)
             setUploadError('Music saved locally. Start backend/server to sync this media across devices.')
           })
-          .catch(() => {
+          .catch((readError) => {
+            clearMusicPreviewBlobUrl()
+            setMusicUrl(null)
+            setMusicName('')
+            setIsMusicUploading(false)
             setUploadError('Music upload failed. Please try another file.')
           })
       })
@@ -219,25 +401,24 @@ export default function HomePage({
       return
     }
 
-    if ((mediaUrl && mediaUrl.startsWith('blob:')) || (musicUrl && musicUrl.startsWith('blob:'))) {
+    if (mediaItems.some((item) => item.url.startsWith('blob:')) || (musicUrl && musicUrl.startsWith('blob:'))) {
       setUploadError('Upload is not finished. Retry upload so your story/post is saved on all devices.')
       return
     }
 
     const nextTitle = composerMode === 'story'
       ? (challengeTitle.trim() || 'New Story')
-      : (challengeTitle.trim() || 'New Post')
+      : ''
     const nextText = composerMode === 'story' ? '' : text.trim()
 
-    if (!nextText && !mediaUrl) {
+    if (!nextText && mediaItems.length === 0) {
       return
     }
 
     const payload = {
       challengeTitle: nextTitle,
       text: nextText,
-      mediaType,
-      mediaUrl,
+      mediaItems,
       musicUrl: composerMode === 'story' ? musicUrl : null,
       musicName: composerMode === 'story' ? musicName : '',
       postType: 'home',
@@ -253,15 +434,19 @@ export default function HomePage({
       onCreatePost(payload)
     }
 
-    // If upload failed and we are using a local blob URL, keep it alive for the new post.
-    if (mediaUrl && previewBlobUrlRef.current === mediaUrl) {
-      previewBlobUrlRef.current = null
-    }
+    // Clean up blob references
+    mediaItems.forEach((item) => {
+      if (item.url.startsWith('blob:') && mediaPreviewBlobUrlsRef.current[item.id]) {
+        mediaPreviewBlobUrlsRef.current[item.id] = null
+      }
+    })
     if (musicUrl && musicPreviewBlobUrlRef.current === musicUrl) {
       musicPreviewBlobUrlRef.current = null
     }
 
-    closeComposer()
+    resetComposerFields()
+    setComposerOpen(false)
+    setUploadError('')
   }
 
   return (
@@ -312,7 +497,14 @@ export default function HomePage({
           backgroundAttachment: 'fixed',
         }}>
           <div className="fb-composer-overlay" />
-          <img src={getAvatar(currentUser)} alt={currentUser.name} className="fb-composer-avatar" />
+          <button
+            type="button"
+            className="fb-composer-avatar-btn"
+            onClick={() => onNavigateToProfile?.(currentUser.id)}
+            aria-label="Open your profile"
+          >
+            <img src={getAvatar(currentUser)} alt={currentUser.name} className="fb-composer-avatar" />
+          </button>
           <button type="button" className="fb-composer-pill" onClick={() => openComposer('post')}>
             What's your challenge today, {currentUser.name.split(' ')[0]}?
           </button>
@@ -320,16 +512,18 @@ export default function HomePage({
 
         {/* Stories */}
         <div className="stories-head">
-          <h3 className="stories-title">Stories</h3>
+          <h3 className="stories-title">{tx('Stories')}</h3>
         </div>
         <StoryStrip
           users={users}
           stories={stories}
           currentUserId={currentUser.id}
           onCreateStory={() => openComposer('story')}
+          onCreateStoryFromCamera={handleCreateStoryFromCamera}
           onEditStory={openStoryEditor}
           onDeleteStory={onDeleteStory}
           onNavigateToProfile={onNavigateToProfile}
+          onStoryReaction={onStoryReaction}
         />
 
         {/* Posts */}
@@ -362,7 +556,7 @@ export default function HomePage({
       <aside className="fb-right" aria-label="Right sidebar">
         {/* Top Challengers */}
         <div className="fb-widget">
-          <h4 className="fb-widget-title">Top Challengers</h4>
+          <h4 className="fb-widget-title">{tx('Top Challengers')}</h4>
           {topChallengers.map((user, i) => (
             <button key={user.id} type="button" className="fb-contact-row" onClick={() => onNavigateToProfile?.(user.id)}>
               <span className="fb-contact-rank">#{i + 1}</span>
@@ -377,7 +571,7 @@ export default function HomePage({
 
         {/* Active challenges */}
         <div className="fb-widget">
-          <h4 className="fb-widget-title">Active Challenges</h4>
+          <h4 className="fb-widget-title">{tx('Active Challenges')}</h4>
           {(challengePosts || []).map((post) => {
             const author = users.find((u) => u.id === post.userId)
             return (
@@ -403,11 +597,11 @@ export default function HomePage({
           <div className="composer-modal">
             <div className="composer-modal-head">
               <div>
-                <h3>{composerMode === 'story' ? 'Create New Challenge' : 'Create Post'}</h3>
+                <h3>{composerMode === 'story' ? 'Create New Story' : 'Create Post'}</h3>
                 <p>
                   {editingTarget
                     ? 'Update your content and save the changes.'
-                    : 'Share text, a poster image, or a video like Facebook.'}
+                    : 'Share text, a poster image, or a video.'}
                 </p>
               </div>
               <button type="button" className="composer-close-btn" onClick={closeComposer}>
@@ -418,16 +612,6 @@ export default function HomePage({
             <form className="composer-form" onSubmit={handleComposerSubmit}>
               {composerMode !== 'story' ? (
                 <>
-                  <label>
-                    Title
-                    <input
-                      type="text"
-                      value={challengeTitle}
-                      onChange={(event) => setChallengeTitle(event.target.value)}
-                      placeholder="Post title"
-                    />
-                  </label>
-
                   <label>
                     Caption
                     <textarea
@@ -441,26 +625,106 @@ export default function HomePage({
               ) : null}
 
               <label>
-                Upload image or video
-                <input type="file" accept="image/*,video/*" onChange={handleMediaChange} />
+                Upload image or video (select multiple)
+                <input type="file" accept="image/*,video/*" onChange={handleMediaChange} multiple />
               </label>
 
-              {composerMode === 'story' ? (
-                <label>
-                  Optional music
-                  <input type="file" accept="audio/*" onChange={handleMusicChange} />
-                </label>
-              ) : null}
-
-              {mediaUrl && (
-                <div className="composer-preview">
-                  {mediaType === 'video' ? (
-                    <video src={mediaUrl} controls className="composer-preview-media" />
-                  ) : (
-                    <img src={mediaUrl} alt="Upload preview" className="composer-preview-media" />
-                  )}
+              {mediaItems.length > 0 && (
+                <div className="composer-media-gallery">
+                  {mediaItems.map((item) => (
+                    <div key={item.id} className="composer-media-item">
+                      {item.type === 'video' ? (
+                        <video src={item.url} className="composer-media-preview" />
+                      ) : (
+                        <img src={item.url} alt="Upload preview" className="composer-media-preview" />
+                      )}
+                      {item.isUploading && (
+                        <div className="composer-media-uploading">
+                          <i className="fa-solid fa-spinner fa-spin" aria-hidden="true" />
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        className="composer-media-remove-btn"
+                        onClick={() => removeMediaItem(item.id)}
+                        aria-label="Remove this media"
+                        title="Remove"
+                      >
+                        <i className="fa-solid fa-xmark" aria-hidden="true" />
+                      </button>
+                    </div>
+                  ))}
                 </div>
               )}
+
+              {composerMode === 'story' ? (
+                <div className="composer-music-picker">
+                  <label>Music</label>
+
+                  <div className="story-music-categories" role="tablist" aria-label="Music categories">
+                    {STORY_MUSIC_CATEGORIES.map((category) => (
+                      <button
+                        key={category.key}
+                        type="button"
+                        role="tab"
+                        aria-selected={activeMusicCategory === category.key}
+                        className={`story-music-category-btn ${activeMusicCategory === category.key ? 'is-active' : ''}`}
+                        onClick={() => setActiveMusicCategory(category.key)}
+                      >
+                        {category.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="story-music-upload-actions">
+                    <button
+                      type="button"
+                      className="story-music-upload-btn"
+                      onClick={() => composerMusicInputRef.current?.click()}
+                      disabled={isMusicUploading}
+                    >
+                      <i className={`fa-solid ${isMusicUploading ? 'fa-spinner fa-spin' : 'fa-file-audio'}`} aria-hidden="true" />
+                      {isMusicUploading ? 'Uploading...' : 'From Device'}
+                    </button>
+
+                    <button
+                      type="button"
+                      className="story-music-upload-btn"
+                      onClick={handleMusicFromBrowser}
+                    >
+                      <i className="fa-solid fa-globe" aria-hidden="true" />
+                      From Browser
+                    </button>
+                  </div>
+
+                  <input
+                    ref={composerMusicInputRef}
+                    type="file"
+                    accept="audio/*"
+                    className="story-music-file-input"
+                    onChange={handleMusicChange}
+                  />
+
+                  <p className="story-music-section-label">Tracks</p>
+
+                  <div className="story-music-track-list">
+                    {(STORY_MUSIC_CATEGORIES.find((category) => category.key === activeMusicCategory)?.tracks || []).map((track) => (
+                      <button
+                        key={track.id}
+                        type="button"
+                        className="story-music-track-btn"
+                        onClick={() => handleSelectSuggestedMusic(track)}
+                      >
+                        <i className="fa-solid fa-music" aria-hidden="true" />
+                        <span>
+                          <strong>{track.name}</strong>
+                          <small>{track.artist}</small>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
 
               {composerMode === 'story' && musicUrl ? (
                 <div className="composer-preview">
@@ -479,7 +743,7 @@ export default function HomePage({
                   {editingTarget
                     ? 'Save Changes'
                     : composerMode === 'story'
-                      ? 'Share Challenge'
+                      ? 'Share Story'
                       : 'Post'}
                 </button>
               </div>

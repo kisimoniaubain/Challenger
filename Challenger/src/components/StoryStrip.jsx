@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { getAvatar } from '../utils/avatar'
 
 const STORY_DURATION_MS = 5000
@@ -11,14 +11,55 @@ const STORY_REACTIONS = [
   { key: 'clap',    icon: 'fa-solid fa-hands-clapping',    color: '#20c997' },
 ]
 
+function formatRelativeStoryTime(createdAt) {
+  const createdAtMs = Date.parse(createdAt || '')
+  if (!Number.isFinite(createdAtMs)) {
+    return 'Just now'
+  }
+
+  const diffMs = Math.max(0, Date.now() - createdAtMs)
+  const diffMinutes = Math.floor(diffMs / 60000)
+
+  if (diffMinutes < 1) {
+    return 'Just now'
+  }
+
+  if (diffMinutes < 60) {
+    return `${diffMinutes}m`
+  }
+
+  const diffHours = Math.floor(diffMinutes / 60)
+  if (diffHours < 24) {
+    return `${diffHours}h`
+  }
+
+  const diffDays = Math.floor(diffHours / 24)
+  if (diffDays < 7) {
+    return `${diffDays}d`
+  }
+
+  const diffWeeks = Math.floor(diffDays / 7)
+  if (diffWeeks < 5) {
+    return `${diffWeeks}w`
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: diffDays >= 365 ? 'numeric' : undefined,
+  }).format(createdAtMs)
+}
+
 export default function StoryStrip({
   stories,
   users,
   currentUserId,
   onCreateStory,
+  onCreateStoryFromCamera,
   onEditStory,
   onDeleteStory,
   onNavigateToProfile,
+  onStoryReaction,
 }) {
   const [activeGroupIndex, setActiveGroupIndex] = useState(null)
   const [activeStoryIndex, setActiveStoryIndex] = useState(null)
@@ -26,8 +67,12 @@ export default function StoryStrip({
   const [storyMessages, setStoryMessages] = useState({})
   const [messageDraft, setMessageDraft] = useState('')
   const [isTyping, setIsTyping] = useState(false)
-  const [reactionCounts, setReactionCounts] = useState({})
+  const [storyReactions, setStoryReactions] = useState({})
   const [elapsed, setElapsed] = useState(0)
+  const [relativeStoryTime, setRelativeStoryTime] = useState('Just now')
+  const cameraCaptureInputRef = useRef(null)
+  const createCardCameraInputRef = useRef(null)
+  const storyMusicAudioRef = useRef(null)
 
   const activeStories = useMemo(() => {
     const now = Date.now()
@@ -85,6 +130,36 @@ export default function StoryStrip({
     setActiveUserStories([])
     setMessageDraft('')
   }
+
+  useEffect(() => {
+    if (activeStoryIndex === null || !activeStory) {
+      return undefined
+    }
+
+    setRelativeStoryTime(formatRelativeStoryTime(activeStory.createdAt))
+    const timeTimer = window.setInterval(() => {
+      setRelativeStoryTime(formatRelativeStoryTime(activeStory.createdAt))
+    }, 60000)
+
+    return () => window.clearInterval(timeTimer)
+  }, [activeStory?.createdAt, activeStory?.id])
+
+  useEffect(() => {
+    if (!activeStory?.musicUrl || activeStoryIndex === null) {
+      return
+    }
+
+    const audioElement = storyMusicAudioRef.current
+    if (!audioElement) {
+      return
+    }
+
+    audioElement.currentTime = 0
+    const playAttempt = audioElement.play()
+    if (playAttempt && typeof playAttempt.catch === 'function') {
+      playAttempt.catch(() => {})
+    }
+  }, [activeStory?.id, activeStory?.musicUrl, activeStoryIndex])
 
   useEffect(() => {
     if (activeStoryIndex === null) {
@@ -202,17 +277,30 @@ export default function StoryStrip({
       return
     }
 
-    setReactionCounts((current) => {
-      const storyReactions = current[activeStory.id] || {}
+    setStoryReactions((current) => {
+      const existingReactions = current[activeStory.id] || []
+      const otherUsers = existingReactions.filter((item) => item.userId !== currentUserId)
       return {
         ...current,
-        [activeStory.id]: {
-          ...storyReactions,
-          [key]: (storyReactions[key] || 0) + 1,
-        },
+        [activeStory.id]: [
+          ...otherUsers,
+          {
+            userId: currentUserId,
+            reactionKey: key,
+            createdAt: Date.now(),
+          },
+        ],
       }
     })
+
+    onStoryReaction?.({
+      storyId: activeStory.id,
+      storyOwnerId: activeStory.userId,
+      reactionKey: key,
+    })
   }
+
+  const activeStoryReactionEntries = activeStory ? (storyReactions[activeStory.id] || []) : []
 
   return (
     <>
@@ -237,6 +325,33 @@ export default function StoryStrip({
                 src={getAvatar(users.find(u => u.id === currentUserId))}
                 alt="Your profile"
                 className="story-profile-cover"
+              />
+              <button
+                type="button"
+                className="story-create-camera-btn"
+                aria-label="Capture story photo"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  createCardCameraInputRef.current?.click()
+                }}
+              >
+                <i className="fa-solid fa-camera" aria-hidden="true" />
+              </button>
+              <input
+                ref={createCardCameraInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="story-camera-capture-input"
+                onChange={(event) => {
+                  const capturedFile = event.target.files?.[0]
+                  if (capturedFile && onCreateStoryFromCamera) {
+                    onCreateStoryFromCamera(capturedFile)
+                  }
+                  if (event.target) {
+                    event.target.value = ''
+                  }
+                }}
               />
               <div className="story-create-overlay">
                 <div className="story-create-content">
@@ -303,14 +418,9 @@ export default function StoryStrip({
                   />
                   <div className="story-card-header-info">
                     <p className="story-card-header-name">{group.author?.name}</p>
-                    <p className="story-card-header-small">{group.author?.email?.split('@')[0]}</p>
+                    <p className="story-card-header-small">{formatRelativeStoryTime(group.latestStory.createdAt)}</p>
                   </div>
                 </div>
-                <img
-                  src={getAvatar(group.author)}
-                  alt={group.author?.name}
-                  className="story-ring-avatar"
-                />
                 {group.stories.length > 1 ? (
                   <span className="story-count-badge">+{group.stories.length - 1}</span>
                 ) : null}
@@ -369,29 +479,49 @@ export default function StoryStrip({
               />
               <div>
                 <strong>{activeAuthor?.name}</strong>
-                <p>{activeStory.timestamp}</p>
+                <p>{relativeStoryTime}</p>
               </div>
             </div>
 
             {activeStory.userId === currentUserId ? (
               <div className="story-owner-actions">
-                <button type="button" onClick={() => onEditStory(activeStory)}>
-                  <i className="fa-solid fa-pen" aria-hidden="true" />
+                <button
+                  type="button"
+                  aria-label="Add another story"
+                  title="Add another story"
+                  onClick={() => onCreateStory?.()}
+                >
+                  <i className="fa-solid fa-plus" aria-hidden="true" />
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    onDeleteStory(activeStory.id)
-                    const remainingStories = activeUserStories.filter((story) => story.id !== activeStory.id)
-                    setActiveUserStories(remainingStories)
-                    setActiveStoryIndex(remainingStories.length ? 0 : null)
-                    if (!remainingStories.length) {
-                      closeViewer()
+                  aria-label="Capture story photo"
+                  title="Capture story photo"
+                  onClick={() => cameraCaptureInputRef.current?.click()}
+                >
+                  <i className="fa-solid fa-camera" aria-hidden="true" />
+                </button>
+
+                <input
+                  ref={(element) => {
+                    cameraCaptureInputRef.current = element
+                  }}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="story-camera-capture-input"
+                  onChange={(event) => {
+                    const capturedFile = event.target.files?.[0]
+                    if (capturedFile && onCreateStoryFromCamera) {
+                      onCreateStoryFromCamera(capturedFile)
+                    } else if (capturedFile) {
+                      onCreateStory?.()
+                    }
+                    if (event.target) {
+                      event.target.value = ''
                     }
                   }}
-                >
-                  <i className="fa-solid fa-trash" aria-hidden="true" />
-                </button>
+                />
               </div>
             ) : null}
 
@@ -436,7 +566,14 @@ export default function StoryStrip({
 
               {activeStory.musicUrl ? (
                 <div className="story-music-bar">
-                  <audio src={activeStory.musicUrl} controls className="story-music-player" />
+                  <audio
+                    key={`${activeStory.id}-${activeStory.musicUrl}`}
+                    ref={storyMusicAudioRef}
+                    src={activeStory.musicUrl}
+                    autoPlay
+                    controls
+                    className="story-music-player"
+                  />
                   <span className="story-music-label">{activeStory.musicName || 'Story music'}</span>
                 </div>
               ) : null}
@@ -448,12 +585,43 @@ export default function StoryStrip({
                     type="button"
                     className="story-reaction-btn"
                     onClick={() => handleReactionClick(r.key)}
+                    aria-label={`React with ${r.key}`}
                   >
                     <i className={r.icon} style={{ color: r.color }} aria-hidden="true" />
-                    <span>{reactionCounts[activeStory.id]?.[r.key] || 0}</span>
                   </button>
                 ))}
               </div>
+
+              {activeStory.userId === currentUserId && activeStoryReactionEntries.length ? (
+                <div className="story-reaction-summary" aria-label="Story reactions">
+                  {activeStoryReactionEntries.map((entry) => {
+                    const reactingUser = users.find((user) => user.id === entry.userId)
+                    const reactionMeta = STORY_REACTIONS.find((reaction) => reaction.key === entry.reactionKey)
+
+                    return (
+                      <button
+                        key={`${entry.userId}-${entry.reactionKey}`}
+                        type="button"
+                        className="story-reaction-summary-item"
+                        onClick={() => reactingUser?.id && onNavigateToProfile?.(reactingUser.id)}
+                        aria-label={`Open ${reactingUser?.name || 'user'} profile`}
+                      >
+                        <img
+                          src={getAvatar(reactingUser)}
+                          alt={reactingUser?.name}
+                          className="story-reaction-summary-avatar"
+                        />
+                        <span className="story-reaction-summary-name">{reactingUser?.name || 'Someone'}</span>
+                        <i
+                          className={reactionMeta?.icon || 'fa-solid fa-heart'}
+                          style={{ color: reactionMeta?.color || '#fff' }}
+                          aria-hidden="true"
+                        />
+                      </button>
+                    )
+                  })}
+                </div>
+              ) : null}
 
               <div className="story-message-bar">
                 <input

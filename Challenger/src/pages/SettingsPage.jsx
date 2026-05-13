@@ -1,6 +1,7 @@
 import { useState } from 'react'
 
-export default function SettingsPage({ currentUser, onLogout, onDeleteAccount }) {
+export default function SettingsPage({ currentUser, onLogout, onDeleteAccount, t }) {
+  const tx = t || ((value) => value)
   const [editMode, setEditMode] = useState(false)
   const [name, setName] = useState(currentUser.name)
   const [email, setEmail] = useState(currentUser.email)
@@ -8,25 +9,25 @@ export default function SettingsPage({ currentUser, onLogout, onDeleteAccount })
   const handleSaveProfile = () => {
     // In a real app, this would update the user profile
     setEditMode(false)
-    alert('Profile updated! (This is a demo)')
+    alert(`${tx('Save Changes')}!`)
   }
 
   return (
     <section className="settings-page">
       <div className="settings-container">
-        <h2>Settings</h2>
-        <p className="subtitle">Manage your account and preferences</p>
+        <h2>{tx('Settings')}</h2>
+        <p className="subtitle">{tx('Manage your account and preferences')}</p>
 
         {/* Account Section */}
         <div className="settings-section">
           <h3 className="settings-section-title">
-            <i className="fa-solid fa-user" aria-hidden="true" /> Account
+            <i className="fa-solid fa-user" aria-hidden="true" /> {tx('Account')}
           </h3>
 
           {editMode ? (
             <div className="settings-form">
               <div className="form-group">
-                <label htmlFor="name">Name</label>
+                <label htmlFor="name">{tx('Name')}</label>
                 <input
                   id="name"
                   type="text"
@@ -36,7 +37,7 @@ export default function SettingsPage({ currentUser, onLogout, onDeleteAccount })
                 />
               </div>
               <div className="form-group">
-                <label htmlFor="email">Email</label>
+                <label htmlFor="email">{tx('Email')}</label>
                 <input
                   id="email"
                   type="email"
@@ -47,26 +48,26 @@ export default function SettingsPage({ currentUser, onLogout, onDeleteAccount })
               </div>
               <div className="form-actions">
                 <button className="btn-primary" onClick={handleSaveProfile}>
-                  Save Changes
+                  {tx('Save Changes')}
                 </button>
                 <button className="btn-secondary" onClick={() => setEditMode(false)}>
-                  Cancel
+                  {tx('Cancel')}
                 </button>
               </div>
             </div>
           ) : (
             <div className="settings-info">
               <p>
-                <strong>Name:</strong> {currentUser.name}
+                <strong>{tx('Name')}:</strong> {currentUser.name}
               </p>
               <p>
-                <strong>Email:</strong> {currentUser.email}
+                <strong>{tx('Email')}:</strong> {currentUser.email}
               </p>
               <button
                 className="btn-secondary"
                 onClick={() => setEditMode(true)}
               >
-                <i className="fa-solid fa-edit" aria-hidden="true" /> Edit Profile
+                <i className="fa-solid fa-edit" aria-hidden="true" /> {tx('Edit Profile')}
               </button>
             </div>
           )}
@@ -75,7 +76,7 @@ export default function SettingsPage({ currentUser, onLogout, onDeleteAccount })
         {/* Privacy & Security */}
         <div className="settings-section">
           <h3 className="settings-section-title">
-            <i className="fa-solid fa-lock" aria-hidden="true" /> Privacy & Security
+            <i className="fa-solid fa-lock" aria-hidden="true" /> {tx('Privacy & Security')}
           </h3>
           <div className="settings-info">
             <p>
@@ -90,7 +91,7 @@ export default function SettingsPage({ currentUser, onLogout, onDeleteAccount })
         {/* About */}
         <div className="settings-section">
           <h3 className="settings-section-title">
-            <i className="fa-solid fa-info-circle" aria-hidden="true" /> About
+            <i className="fa-solid fa-info-circle" aria-hidden="true" /> {tx('About')}
           </h3>
           <div className="settings-info">
             <p>
@@ -109,7 +110,7 @@ export default function SettingsPage({ currentUser, onLogout, onDeleteAccount })
         {/* Danger Zone */}
         <div className="settings-section danger-zone">
           <h3 className="settings-section-title">
-            <i className="fa-solid fa-triangle-exclamation" aria-hidden="true" /> Danger Zone
+            <i className="fa-solid fa-triangle-exclamation" aria-hidden="true" /> {tx('Danger Zone')}
           </h3>
           <p className="option-desc">Irreversible actions</p>
           <button
@@ -120,7 +121,7 @@ export default function SettingsPage({ currentUser, onLogout, onDeleteAccount })
               }
             }}
           >
-            <i className="fa-solid fa-user-slash" aria-hidden="true" /> Delete My Account
+            <i className="fa-solid fa-user-slash" aria-hidden="true" /> {tx('Delete My Account')}
           </button>
           <button
             className="btn-danger"
@@ -130,7 +131,7 @@ export default function SettingsPage({ currentUser, onLogout, onDeleteAccount })
               }
             }}
           >
-            <i className="fa-solid fa-sign-out-alt" aria-hidden="true" /> Log Out
+            <i className="fa-solid fa-sign-out-alt" aria-hidden="true" /> {tx('Log Out')}
           </button>
         </div>
       </div>

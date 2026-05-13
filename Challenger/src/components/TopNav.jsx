@@ -1,13 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { getAvatar } from '../utils/avatar'
 
-const tabItems = [
-  { id: 'home', label: 'Home', icon: 'fa-solid fa-house' },
-  { id: 'challenges', label: 'Challenges', icon: 'fa-solid fa-microphone-lines' },
-  { id: 'notifications', label: 'Notifications', icon: 'fa-solid fa-bell' },
-  { id: 'messages', label: 'Messages', icon: 'fa-solid fa-comments' },
-]
-
 export default function TopNav({
   currentUser,
   activeTab,
@@ -16,7 +9,15 @@ export default function TopNav({
   posts,
   onNavigateToProfile,
   onNavigateToMenu,
+  t,
 }) {
+  const tx = t || ((value) => value)
+  const tabItems = [
+    { id: 'home', label: tx('Home'), icon: 'fa-solid fa-house' },
+    { id: 'challenges', label: tx('Clips'), icon: 'fa-solid fa-paperclip' },
+    { id: 'notifications', label: tx('Notifications'), icon: 'fa-solid fa-bell' },
+    { id: 'messages', label: tx('Messages'), icon: 'fa-solid fa-comments' },
+  ]
   const [searchQuery, setSearchQuery] = useState('')
   const [showSearchResults, setShowSearchResults] = useState(false)
   const searchWrapRef = useRef(null)
@@ -90,14 +91,14 @@ export default function TopNav({
             <input
               className="top-search-input"
               type="search"
-              placeholder="Search people and challenges"
+              placeholder={tx('Search people and challenges')}
               value={searchQuery}
               onChange={(event) => {
                 setSearchQuery(event.target.value)
                 setShowSearchResults(true)
               }}
               onFocus={() => setShowSearchResults(true)}
-              aria-label="Search people and challenges"
+              aria-label={tx('Search people and challenges')}
             />
 
             {showSearchResults && normalizedQuery ? (
@@ -128,14 +129,14 @@ export default function TopNav({
                       <i className="fa-solid fa-microphone-lines" aria-hidden="true" />
                     </span>
                     <div>
-                      <strong>{post.challengeTitle || 'Challenge'}</strong>
-                      <p>{(post.text || 'Open challenge').slice(0, 55)}</p>
+                      <strong>{post.challengeTitle || tx('Challenges')}</strong>
+                      <p>{(post.text || tx('Active Challenges')).slice(0, 55)}</p>
                     </div>
                   </button>
                 ))}
 
                 {!userMatches.length && !challengeMatches.length ? (
-                  <p className="top-search-empty">No results found.</p>
+                  <p className="top-search-empty">{tx('No results found.')}</p>
                 ) : null}
               </div>
             ) : null}
@@ -152,8 +153,8 @@ export default function TopNav({
               <i className="fa-solid fa-bars" aria-hidden="true" />
             </button>
 
-            <button className="icon-btn" type="button" aria-label="Notifications" onClick={() => onTabChange('notifications')}>
-              <i className="fa-solid fa-bell" aria-hidden="true" />
+            <button className="icon-btn" type="button" aria-label="People" onClick={() => onTabChange('people')}>
+              <i className="fa-solid fa-users" aria-hidden="true" />
             </button>
 
             <button

@@ -52,7 +52,9 @@ database.exec(`
     id INTEGER PRIMARY KEY,
     userId INTEGER NOT NULL,
     timestamp TEXT NOT NULL,
+    createdAt TEXT,
     text TEXT,
+    mediaItems TEXT,
     mediaType TEXT,
     mediaUrl TEXT,
     likes INTEGER DEFAULT 0,
@@ -103,6 +105,14 @@ if (!storyColumns.some((column) => column.name === 'musicName')) {
   database.exec('ALTER TABLE stories ADD COLUMN musicName TEXT')
 }
 
+const postColumns = database.prepare('PRAGMA table_info(posts)').all()
+if (!postColumns.some((column) => column.name === 'createdAt')) {
+  database.exec('ALTER TABLE posts ADD COLUMN createdAt TEXT')
+}
+if (!postColumns.some((column) => column.name === 'mediaItems')) {
+  database.exec('ALTER TABLE posts ADD COLUMN mediaItems TEXT')
+}
+
 function tableHasRows(tableName) {
   return database.prepare(`SELECT COUNT(*) AS count FROM ${tableName}`).get().count > 0
 }
@@ -148,6 +158,25 @@ function normalizeRows(rows) {
   return dedupeBy(rows, (row) => row?.id)
 }
 
+function normalizeMediaItems(mediaItems, mediaType, mediaUrl) {
+  const normalizedItems = Array.isArray(mediaItems)
+    ? mediaItems
+      .map((item) => ({
+        type: item?.type || null,
+        url: item?.url || null,
+      }))
+      .filter((item) => item.type && item.url)
+    : []
+
+  if (normalizedItems.length > 0) {
+    return normalizedItems
+  }
+
+  return mediaUrl && mediaType
+    ? [{ type: mediaType, url: mediaUrl }]
+    : []
+}
+
 function replaceUsers(users) {
   const insertUser = database.prepare(`
     INSERT INTO users (id, name, email, password, avatar, coverPhoto, totalVotes, googleId, gender)
@@ -171,18 +200,21 @@ function replaceUsers(users) {
 
 function replacePosts(posts) {
   const insertPost = database.prepare(`
-    INSERT INTO posts (id, userId, timestamp, text, mediaType, mediaUrl, likes, comments, shares, challengeVotes, challengeTitle)
-    VALUES (@id, @userId, @timestamp, @text, @mediaType, @mediaUrl, @likes, @comments, @shares, @challengeVotes, @challengeTitle)
+    INSERT INTO posts (id, userId, timestamp, createdAt, text, mediaItems, mediaType, mediaUrl, likes, comments, shares, challengeVotes, challengeTitle)
+    VALUES (@id, @userId, @timestamp, @createdAt, @text, @mediaItems, @mediaType, @mediaUrl, @likes, @comments, @shares, @challengeVotes, @challengeTitle)
   `)
 
   runReplace('posts', normalizeRows(posts), (post) => {
+      const mediaItems = normalizeMediaItems(post.mediaItems, post.mediaType, post.mediaUrl)
       insertPost.run({
         id: toSafeNumber(post.id),
         userId: toSafeNumber(post.userId),
         timestamp: post.timestamp,
+        createdAt: post.createdAt || new Date().toISOString(),
         text: post.text || '',
-        mediaType: post.mediaType || null,
-        mediaUrl: post.mediaUrl || null,
+        mediaItems: JSON.stringify(mediaItems),
+        mediaType: mediaItems.length > 0 ? mediaItems[0].type : (post.mediaType || null),
+        mediaUrl: mediaItems.length > 0 ? mediaItems[0].url : (post.mediaUrl || null),
         likes: toSafeNumber(post.likes),
         comments: toSafeNumber(post.comments),
         shares: toSafeNumber(post.shares),
@@ -265,7 +297,25 @@ export function listUsers() {
 }
 
 export function listPosts() {
-  return database.prepare('SELECT * FROM posts ORDER BY id DESC').all()
+  return database.prepare('SELECT * FROM posts ORDER BY id DESC').all().map((post) => {
+    let parsedMediaItems = []
+
+    try {
+      const decoded = JSON.parse(post.mediaItems || '[]')
+      parsedMediaItems = Array.isArray(decoded) ? decoded : []
+    } catch {
+      parsedMediaItems = []
+    }
+
+    const mediaItems = normalizeMediaItems(parsedMediaItems, post.mediaType, post.mediaUrl)
+
+    return {
+      ...post,
+      mediaItems,
+      mediaType: mediaItems.length > 0 ? mediaItems[0].type : (post.mediaType || null),
+      mediaUrl: mediaItems.length > 0 ? mediaItems[0].url : (post.mediaUrl || null),
+    }
+  })
 }
 
 export function listStories() {

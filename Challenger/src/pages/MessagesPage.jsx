@@ -10,7 +10,9 @@ export default function MessagesPage({
   onEditMessage,
   onDeleteMessage,
   onNavigateToProfile,
+  t,
 }) {
+  const tx = t || ((value) => value)
   const [draft, setDraft] = useState('')
 
   const contacts = useMemo(
@@ -46,10 +48,10 @@ export default function MessagesPage({
   }
 
   return (
-    <section className="messages-page" aria-label="Messages">
+    <section className="messages-page" aria-label={tx('Messages')}>
       <aside className="messages-sidebar">
         <div className="messages-sidebar-head">
-          <h2>Chats</h2>
+          <h2>{tx('Chats')}</h2>
           <p>Message other challengers like Facebook.</p>
         </div>
 
@@ -145,14 +147,14 @@ export default function MessagesPage({
               />
               <button type="submit">
                 <i className="fa-solid fa-paper-plane" aria-hidden="true" />
-                <span>Send</span>
+                <span>{tx('Send')}</span>
               </button>
             </form>
           </>
         ) : (
           <div className="messages-empty-state">
             <i className="fa-regular fa-comments" aria-hidden="true" />
-            <p>No contacts available yet.</p>
+            <p>{tx('No contacts available yet.')}</p>
           </div>
         )}
       </div>

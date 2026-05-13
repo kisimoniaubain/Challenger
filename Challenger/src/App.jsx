@@ -5,10 +5,11 @@ import HomePage from './pages/HomePage'
 import ChallengesPage from './pages/ChallengesPage'
 import NotificationsPage from './pages/NotificationsPage'
 import MessagesPage from './pages/MessagesPage'
-import ProfilePage from './pages/ProfilePage'
+import PeoplePage from './pages/PeoplePage'
 import UserProfilePage from './pages/UserProfilePage'
 import MenuPage from './pages/MenuPage'
 import SettingsPage from './pages/SettingsPage'
+import LanguagePage from './pages/LanguagePage'
 import LoginPage from './pages/LoginPage'
 import {
   loadRemoteState,
@@ -20,6 +21,7 @@ import {
 import { users as usersData } from './data/users'
 import { messages as messagesData } from './data/messages'
 import { posts as postsData } from './data/posts'
+import { createTranslator, isSupportedLanguage } from './utils/i18n'
 
 const SESSION_KEY = 'challenger_session_user_id'
 const ACTIVE_TAB_KEY = 'challenger_active_tab'
@@ -30,8 +32,48 @@ const POSTS_KEY = 'challenger_posts'
 const STORIES_KEY = 'challenger_stories'
 const MESSAGES_KEY = 'challenger_messages'
 const NOTIFICATIONS_KEY = 'challenger_notifications'
+const FOLLOWING_KEY = 'challenger_following_user_ids'
+const LANGUAGE_KEY = 'challenger_language'
 const POST_TYPE_HOME = 'home'
 const POST_TYPE_CHALLENGE = 'challenge'
+const POST_EDIT_WINDOW_MS = 10 * 60 * 1000
+const AUTO_STORY_MUSIC_LIBRARY = [
+  {
+    name: 'Story Pop Pulse',
+    url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
+  },
+  {
+    name: 'Sunset Afro Vibe',
+    url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3',
+  },
+  {
+    name: 'Chill Evening Flow',
+    url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3',
+  },
+  {
+    name: 'Midnight Story Beat',
+    url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-9.mp3',
+  },
+]
+
+function getAutoStoryMusic(story) {
+  const hasExplicitMusic = Boolean(story?.musicUrl)
+  if (hasExplicitMusic || story?.mediaType !== 'image') {
+    return {
+      musicUrl: story?.musicUrl || null,
+      musicName: story?.musicName || '',
+    }
+  }
+
+  const numericSeed = Number(story?.id || story?.userId || 0)
+  const safeSeed = Number.isFinite(numericSeed) ? Math.abs(numericSeed) : 0
+  const pickedTrack = AUTO_STORY_MUSIC_LIBRARY[safeSeed % AUTO_STORY_MUSIC_LIBRARY.length]
+
+  return {
+    musicUrl: pickedTrack.url,
+    musicName: pickedTrack.name,
+  }
+}
 
 const initialStories = postsData.slice(0, 5).map((post) => ({
   id: post.id,
@@ -50,8 +92,7 @@ function normalizeStories(stories) {
   return (stories || []).map((story) => ({
     ...story,
     createdAt: story.createdAt || new Date().toISOString(),
-    musicUrl: story.musicUrl || null,
-    musicName: story.musicName || '',
+    ...getAutoStoryMusic(story),
   }))
 }
 
@@ -72,11 +113,66 @@ function inferPostType(post) {
   return POST_TYPE_HOME
 }
 
+function resolveLegacyPostCreatedAt(post) {
+  if (post?.createdAt) {
+    return post.createdAt
+  }
+
+  const rawTimestamp = String(post?.timestamp || '').trim().toLowerCase()
+  const now = Date.now()
+
+  if (!rawTimestamp || rawTimestamp === 'just now') {
+    return new Date(now).toISOString()
+  }
+
+  const relativeMatch = rawTimestamp.match(/^(\d+)\s*([mhdw])(?:\s*ago)?$/)
+  if (relativeMatch) {
+    const amount = Number(relativeMatch[1])
+    const unit = relativeMatch[2]
+    const unitMs = {
+      m: 60 * 1000,
+      h: 60 * 60 * 1000,
+      d: 24 * 60 * 60 * 1000,
+      w: 7 * 24 * 60 * 60 * 1000,
+    }[unit]
+
+    if (Number.isFinite(amount) && unitMs) {
+      return new Date(now - amount * unitMs).toISOString()
+    }
+  }
+
+  return new Date(now).toISOString()
+}
+
 function normalizePosts(posts) {
   return (posts || []).map((post) => ({
     ...post,
+    mediaItems: Array.isArray(post?.mediaItems) && post.mediaItems.length > 0
+      ? post.mediaItems
+        .map((item) => ({
+          type: item?.type || null,
+          url: item?.url || null,
+        }))
+        .filter((item) => item.type && item.url)
+      : (post?.mediaUrl && post?.mediaType
+        ? [{ type: post.mediaType, url: post.mediaUrl }]
+        : []),
+    createdAt: resolveLegacyPostCreatedAt(post),
     postType: inferPostType(post),
+  })).map((post) => ({
+    ...post,
+    mediaType: post.mediaItems.length > 0 ? post.mediaItems[0].type : (post.mediaType || null),
+    mediaUrl: post.mediaItems.length > 0 ? post.mediaItems[0].url : (post.mediaUrl || null),
   }))
+}
+
+function canEditPostWithinWindow(post) {
+  const createdAtMs = Date.parse(post?.createdAt || '')
+  if (!Number.isFinite(createdAtMs)) {
+    return true
+  }
+
+  return Date.now() - createdAtMs <= POST_EDIT_WINDOW_MS
 }
 
 function readSessionUserId() {
@@ -101,6 +197,22 @@ function readStoredJson(key, fallbackValue) {
 function readStoredUsers(key) {
   const storedUsers = readStoredJson(key, [])
   return Array.isArray(storedUsers) ? storedUsers : []
+}
+
+function readStoredRecord(key, fallbackValue) {
+  try {
+    const rawValue = localStorage.getItem(key)
+    if (!rawValue) {
+      return fallbackValue
+    }
+
+    const parsedValue = JSON.parse(rawValue)
+    return parsedValue && typeof parsedValue === 'object' && !Array.isArray(parsedValue)
+      ? parsedValue
+      : fallbackValue
+  } catch {
+    return fallbackValue
+  }
 }
 
 function normalizeIdentifierValue(value) {
@@ -280,15 +392,25 @@ export default function App() {
   const [currentUserId, setCurrentUserId] = useState(readSessionUserId)
   const [messages, setMessages] = useState(() => readStoredJson(MESSAGES_KEY, messagesData))
   const [notifications, setNotifications] = useState(() => readStoredJson(NOTIFICATIONS_KEY, []))
+  const [followGraph, setFollowGraph] = useState(() => readStoredRecord(FOLLOWING_KEY, {}))
   const [selectedChatUserId, setSelectedChatUserId] = useState(2)
   const [theme, setTheme] = useState(() => localStorage.getItem(THEME_KEY) || 'light')
+  const [language, setLanguage] = useState(() => {
+    const storedLanguage = localStorage.getItem(LANGUAGE_KEY) || 'en'
+    return isSupportedLanguage(storedLanguage) ? storedLanguage : 'en'
+  })
   const [apiMode, setApiMode] = useState('probing')
   const [isRemoteReady, setIsRemoteReady] = useState(false)
   const [hasHydratedRemote, setHasHydratedRemote] = useState(false)
   const [initialLoadTimeout, setInitialLoadTimeout] = useState(false)
   const [viewingUserId, setViewingUserId] = useState(() => readSessionUserId() || null)
+  const [openStoryComposerSignal, setOpenStoryComposerSignal] = useState(0)
 
   const currentUser = users.find((user) => user.id === currentUserId) || null
+  const t = createTranslator(language)
+  const followingUserIds = currentUser
+    ? (Array.isArray(followGraph[currentUser.id]) ? followGraph[currentUser.id] : [])
+    : []
   const homePosts = posts.filter((post) => inferPostType(post) === POST_TYPE_HOME)
   const challengePosts = posts.filter((post) => inferPostType(post) === POST_TYPE_CHALLENGE)
 
@@ -296,6 +418,11 @@ export default function App() {
     document.body.classList.toggle('theme-dark', theme === 'dark')
     document.body.classList.toggle('theme-light', theme === 'light')
   }, [theme])
+
+  useEffect(() => {
+    document.documentElement.lang = language
+    localStorage.setItem(LANGUAGE_KEY, language)
+  }, [language])
 
   function applyRemoteState(remoteState) {
     setUsers((currentUsers) => mergeUsers(currentUsers, remoteState.users || []))
@@ -378,6 +505,10 @@ export default function App() {
     localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(notifications))
   }, [notifications])
 
+  useEffect(() => {
+    localStorage.setItem(FOLLOWING_KEY, JSON.stringify(followGraph))
+  }, [followGraph])
+
   function appendNotifications(nextItems) {
     const items = Array.isArray(nextItems) ? nextItems : [nextItems]
     const validItems = items.filter(Boolean)
@@ -413,6 +544,14 @@ export default function App() {
       localStorage.setItem(THEME_KEY, nextTheme)
       return nextTheme
     })
+  }
+
+  function handleChangeLanguage(nextLanguage) {
+    if (!isSupportedLanguage(nextLanguage)) {
+      return
+    }
+
+    setLanguage(nextLanguage)
   }
 
   function updatePost(postId, updater) {
@@ -692,8 +831,15 @@ export default function App() {
     ])
   }
 
-  function handleCreatePost({ text, mediaType, mediaUrl, challengeTitle, postType }) {
+  function handleCreatePost({ text, mediaItems, mediaType, mediaUrl, challengeTitle, postType }) {
     const resolvedPostType = postType === POST_TYPE_CHALLENGE ? POST_TYPE_CHALLENGE : POST_TYPE_HOME
+    const fallbackMediaItems = mediaUrl
+      ? [{ type: mediaType || 'image', url: mediaUrl }]
+      : []
+    const sourceMediaItems = Array.isArray(mediaItems) && mediaItems.length > 0 ? mediaItems : fallbackMediaItems
+    const cleanMediaItems = sourceMediaItems
+      .map(({ type, url }) => ({ type, url }))
+      .filter((item) => item.type && item.url)
 
     setPosts((currentPosts) => {
       const nextId = currentPosts.reduce((maxId, post) => Math.max(maxId, post.id), 0) + 1
@@ -702,9 +848,11 @@ export default function App() {
           id: nextId,
           userId: currentUser.id,
           timestamp: 'Just now',
+          createdAt: new Date().toISOString(),
           text,
-          mediaType,
-          mediaUrl,
+          mediaItems: cleanMediaItems,
+          mediaType: cleanMediaItems.length > 0 ? cleanMediaItems[0].type : null,
+          mediaUrl: cleanMediaItems.length > 0 ? cleanMediaItems[0].url : null,
           likes: 0,
           comments: 0,
           shares: 0,
@@ -732,21 +880,28 @@ export default function App() {
     }
   }
 
-  function handleCreateStory({ text, mediaType, mediaUrl, challengeTitle, musicUrl, musicName }) {
+  function handleCreateStory({ text, mediaItems, challengeTitle, musicUrl, musicName }) {
+    const cleanMediaItems = mediaItems.map(({ id, type, url, isUploading }) => ({ type, url }))
+
     setStories((currentStories) => {
       const nextId = currentStories.reduce((maxId, story) => Math.max(maxId, story.id), 0) + 1
+      const nextStoryBase = {
+        id: nextId,
+        userId: currentUser.id,
+        timestamp: 'Just now',
+        createdAt: new Date().toISOString(),
+        text,
+        mediaItems: cleanMediaItems,
+        mediaType: cleanMediaItems.length > 0 ? cleanMediaItems[0].type : null,
+        mediaUrl: cleanMediaItems.length > 0 ? cleanMediaItems[0].url : null,
+        musicUrl: musicUrl || null,
+        musicName: musicName || '',
+        challengeTitle,
+      }
       return [
         {
-          id: nextId,
-          userId: currentUser.id,
-          timestamp: 'Just now',
-          createdAt: new Date().toISOString(),
-          text,
-          mediaType,
-          mediaUrl,
-          musicUrl: musicUrl || null,
-          musicName: musicName || '',
-          challengeTitle,
+          ...nextStoryBase,
+          ...getAutoStoryMusic(nextStoryBase),
         },
         ...currentStories,
       ]
@@ -754,15 +909,18 @@ export default function App() {
   }
 
   function handleEditPost(postId, nextValues) {
+    const cleanMediaItems = (nextValues.mediaItems || []).map(({ id, type, url, isUploading }) => ({ type, url }))
+
     setPosts((currentPosts) =>
       currentPosts.map((post) =>
-        post.id === postId
+        post.id === postId && canEditPostWithinWindow(post)
           ? {
               ...post,
               text: nextValues.text,
               challengeTitle: nextValues.challengeTitle,
-              mediaType: nextValues.mediaType,
-              mediaUrl: nextValues.mediaUrl,
+              mediaItems: cleanMediaItems,
+              mediaType: cleanMediaItems.length > 0 ? cleanMediaItems[0].type : null,
+              mediaUrl: cleanMediaItems.length > 0 ? cleanMediaItems[0].url : null,
               postType: nextValues.postType || post.postType || inferPostType(post),
             }
           : post,
@@ -771,22 +929,34 @@ export default function App() {
   }
 
   function handleDeletePost(postId) {
-    setPosts((currentPosts) => currentPosts.filter((post) => post.id !== postId))
+    setPosts((currentPosts) =>
+      currentPosts.filter((post) => post.id !== postId || !canEditPostWithinWindow(post)),
+    )
   }
 
   function handleEditStory(storyId, nextValues) {
+    const cleanMediaItems = (nextValues.mediaItems || []).map(({ id, type, url, isUploading }) => ({ type, url }))
+
     setStories((currentStories) =>
       currentStories.map((story) =>
         story.id === storyId
-          ? {
-              ...story,
-              text: nextValues.text,
-              challengeTitle: nextValues.challengeTitle,
-              mediaType: nextValues.mediaType,
-              mediaUrl: nextValues.mediaUrl,
-              musicUrl: nextValues.musicUrl || null,
-              musicName: nextValues.musicName || '',
-            }
+          ? (() => {
+              const nextStory = {
+                ...story,
+                text: nextValues.text,
+                challengeTitle: nextValues.challengeTitle,
+                mediaItems: cleanMediaItems,
+                mediaType: cleanMediaItems.length > 0 ? cleanMediaItems[0].type : null,
+                mediaUrl: cleanMediaItems.length > 0 ? cleanMediaItems[0].url : null,
+                musicUrl: nextValues.musicUrl || null,
+                musicName: nextValues.musicName || '',
+              }
+
+              return {
+                ...nextStory,
+                ...getAutoStoryMusic(nextStory),
+              }
+            })()
           : story,
       ),
     )
@@ -794,6 +964,40 @@ export default function App() {
 
   function handleDeleteStory(storyId) {
     setStories((currentStories) => currentStories.filter((story) => story.id !== storyId))
+  }
+
+  function handleStoryReaction({ storyId, storyOwnerId, reactionKey }) {
+    if (!storyOwnerId || storyOwnerId === currentUser?.id) {
+      return
+    }
+
+    appendNotifications({
+      id: Date.now() + Math.random(),
+      type: 'story-reaction',
+      actorId: currentUser?.id,
+      targetUserId: storyOwnerId,
+      storyId,
+      reactionKey,
+      createdAt: new Date().toISOString(),
+    })
+  }
+
+  function handleToggleFollowUser(targetUserId) {
+    if (!currentUser || !targetUserId || targetUserId === currentUser.id) {
+      return
+    }
+
+    setFollowGraph((current) => {
+      const currentFollowing = Array.isArray(current[currentUser.id]) ? current[currentUser.id] : []
+      const nextFollowing = currentFollowing.includes(targetUserId)
+        ? currentFollowing.filter((id) => id !== targetUserId)
+        : [...currentFollowing, targetUserId]
+
+      return {
+        ...current,
+        [currentUser.id]: nextFollowing,
+      }
+    })
   }
 
   function handleEditMessage(messageId, nextText) {
@@ -852,6 +1056,12 @@ export default function App() {
     setViewingUserId(null)
   }
 
+  function handleOpenStoryComposerFromProfile() {
+    setOpenStoryComposerSignal(Date.now())
+    handleTabChange('home')
+    setViewingUserId(null)
+  }
+
   if (!currentUser && !isRemoteReady && !initialLoadTimeout) {
     return (
       <section className="login-page" aria-label="Preparing your account data">
@@ -873,6 +1083,7 @@ export default function App() {
         onRegister={handleRegister}
         onGoogleLogin={handleGoogleLogin}
         onForgotPassword={handleForgotPassword}
+        t={t}
       />
     )
   }
@@ -887,6 +1098,7 @@ export default function App() {
         posts={posts}
         onNavigateToProfile={handleNavigateToUserProfile}
         onNavigateToMenu={handleNavigateToMenu}
+        t={t}
       />
 
       <main className="page-area">
@@ -912,6 +1124,9 @@ export default function App() {
             onOpenChat={handleOpenChat}
             onTabChange={handleTabChange}
             onNavigateToProfile={handleNavigateToUserProfile}
+            openStoryComposerSignal={openStoryComposerSignal}
+            onStoryReaction={handleStoryReaction}
+            t={t}
           />
         )}
 
@@ -920,15 +1135,33 @@ export default function App() {
             currentUser={currentUser}
             users={users}
             posts={challengePosts}
+            likedPosts={likedPosts}
             votedPosts={votedPosts}
+            onLike={handleLike}
+            onComment={handleComment}
+            onShare={handleShare}
             onVote={handleVote}
             onCreatePost={handleCreatePost}
+            onEditPost={handleEditPost}
+            onDeletePost={handleDeletePost}
             onNavigateToProfile={handleNavigateToUserProfile}
+            t={t}
+          />
+        )}
+
+        {activeTab === 'people' && (
+          <PeoplePage
+            currentUser={currentUser}
+            users={users}
+            followGraph={followGraph}
+            onToggleFollowUser={handleToggleFollowUser}
+            onNavigateToProfile={handleNavigateToUserProfile}
+            t={t}
           />
         )}
 
         {activeTab === 'notifications' && (
-          <NotificationsPage currentUser={currentUser} users={users} posts={posts} messages={messages} notifications={notifications} />
+          <NotificationsPage currentUser={currentUser} users={users} posts={posts} messages={messages} notifications={notifications} t={t} />
         )}
         {activeTab === 'messages' && (
           <MessagesPage
@@ -941,24 +1174,22 @@ export default function App() {
             onEditMessage={handleEditMessage}
             onDeleteMessage={handleDeleteMessage}
             onNavigateToProfile={handleNavigateToUserProfile}
+            t={t}
           />
         )}
-        {activeTab === 'profile' && (
-          <ProfilePage
-            currentUser={currentUser}
-            posts={posts}
-            onNavigate={handleNavigateToSettings}
-            onUpdateAvatar={handleUpdateCurrentUserAvatar}
-            onUpdateCoverPhoto={handleUpdateCurrentUserCoverPhoto}
-          />
-        )}
-        {activeTab === 'user-profile' && viewingUserId && (
+        {(activeTab === 'profile' || activeTab === 'user-profile') && (
           <UserProfilePage
-            user={users.find((u) => u.id === viewingUserId)}
+            user={activeTab === 'profile' ? currentUser : users.find((u) => u.id === viewingUserId)}
             currentUserId={currentUserId}
             users={users}
             posts={posts}
+            followGraph={followGraph}
             onNavigate={handleNavigateToSettings}
+            onAddStory={handleOpenStoryComposerFromProfile}
+            onTabChange={handleNavigateTab}
+            onUpdateAvatar={handleUpdateCurrentUserAvatar}
+            onUpdateCoverPhoto={handleUpdateCurrentUserCoverPhoto}
+            t={t}
           />
         )}
         {activeTab === 'menu' && (
@@ -969,6 +1200,9 @@ export default function App() {
             onToggleTheme={handleToggleTheme}
             currentUser={currentUser}
             onLogout={handleLogout}
+            onNavigateToLanguage={() => handleNavigateTab('language')}
+            language={language}
+            t={t}
           />
         )}
         {activeTab === 'settings' && (
@@ -976,11 +1210,15 @@ export default function App() {
             currentUser={currentUser}
             onLogout={handleLogout}
             onDeleteAccount={handleDeleteAccount}
+            t={t}
           />
+        )}
+        {activeTab === 'language' && (
+          <LanguagePage language={language} onChangeLanguage={handleChangeLanguage} t={t} />
         )}
       </main>
 
-      <BottomNav activeTab={activeTab} onTabChange={handleTabChange} />
+      <BottomNav activeTab={activeTab} onTabChange={handleTabChange} t={t} />
     </div>
   )
 }

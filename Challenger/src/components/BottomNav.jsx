@@ -1,11 +1,12 @@
-const navItems = [
-  { id: 'home', label: 'Home', icon: 'fa-solid fa-house' },
-  { id: 'challenges', label: 'Challenges', icon: 'fa-solid fa-microphone-lines' },
-  { id: 'notifications', label: 'Notifications', icon: 'fa-solid fa-bell' },
-  { id: 'messages', label: 'Messages', icon: 'fa-solid fa-comments' },
-]
+export default function BottomNav({ activeTab, onTabChange, t }) {
+  const tx = t || ((value) => value)
+  const navItems = [
+    { id: 'home', label: tx('Home'), icon: 'fa-solid fa-house' },
+    { id: 'challenges', label: tx('Clips'), icon: 'fa-solid fa-paperclip' },
+    { id: 'notifications', label: tx('Notifications'), icon: 'fa-solid fa-bell' },
+    { id: 'messages', label: tx('Messages'), icon: 'fa-solid fa-comments' },
+  ]
 
-export default function BottomNav({ activeTab, onTabChange }) {
   return (
     <nav className="bottom-nav" aria-label="Bottom navigation">
       {navItems.map((item) => (

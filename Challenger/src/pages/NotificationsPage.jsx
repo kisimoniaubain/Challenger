@@ -1,4 +1,5 @@
-export default function NotificationsPage({ currentUser, users, posts, messages, notifications = [] }) {
+export default function NotificationsPage({ currentUser, users, posts, messages, notifications = [], t }) {
+  const tx = t || ((value) => value)
   const timelineNotifications = notifications
     .filter((item) => item.targetUserId === currentUser.id)
     .slice(0, 40)
@@ -51,6 +52,15 @@ export default function NotificationsPage({ currentUser, users, posts, messages,
       }
     }
 
+    if (item.type === 'story-reaction') {
+      return {
+        icon: 'fa-solid fa-face-smile',
+        title: `${actor?.name || 'Someone'} reacted to your story`,
+        detail: 'Your story got a new reaction.',
+        avatar: actor?.avatar || currentUser.avatar,
+      }
+    }
+
     return {
       icon: 'fa-solid fa-bell',
       title: 'New notification',
@@ -61,7 +71,7 @@ export default function NotificationsPage({ currentUser, users, posts, messages,
 
   return (
     <section className="basic-page">
-      <h2>Notifications</h2>
+      <h2>{tx('Notifications')}</h2>
       <p className="subtitle">Recent updates about your account activity.</p>
 
       <div className="leaderboard-list">
@@ -104,7 +114,7 @@ export default function NotificationsPage({ currentUser, users, posts, messages,
             </span>
             <img src={currentUser.avatar} alt={currentUser.name} className="post-avatar" />
             <div className="leaderboard-user">
-              <strong>Your challenge received votes</strong>
+              <strong>{tx('Challenge Votes')}</strong>
               <p>
                 {post.challengeTitle}: {post.challengeVotes} vote(s)
               </p>

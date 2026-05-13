@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { uploadMediaFile } from '../services/api'
 import { getAvatar, getCoverPhoto } from '../utils/avatar'
 
@@ -8,12 +8,30 @@ export default function ProfilePage({
   onNavigate,
   onUpdateAvatar,
   onUpdateCoverPhoto,
+  onAddStory,
 }) {
   const userPosts = posts.filter((post) => post.userId === currentUser.id)
   const postCount = userPosts.length
   const followerCount = Math.floor(Math.random() * 500) + 50
   const [activeTab, setActiveTab] = useState('posts')
   const [uploadError, setUploadError] = useState('')
+  const [isAvatarUploading, setIsAvatarUploading] = useState(false)
+  const [isCoverUploading, setIsCoverUploading] = useState(false)
+  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false)
+  const moreMenuRef = useRef(null)
+
+  useEffect(() => {
+    function handleDocumentClick(event) {
+      if (!moreMenuRef.current?.contains(event.target)) {
+        setIsMoreMenuOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleDocumentClick)
+    return () => {
+      document.removeEventListener('mousedown', handleDocumentClick)
+    }
+  }, [])
 
   function readFileAsDataUrl(file) {
     return new Promise((resolve, reject) => {
@@ -24,7 +42,9 @@ export default function ProfilePage({
     })
   }
 
-  async function updateImage(file, onSuccess) {
+  async function updateImage(file, onSuccess, setUploading) {
+    setUploading(true)
+
     try {
       setUploadError('')
       const previewUrl = await readFileAsDataUrl(file)
@@ -37,6 +57,8 @@ export default function ProfilePage({
       onSuccess?.(uploadResult.url)
     } catch {
       setUploadError('Photo updated locally. Start backend/server to sync this photo across devices.')
+    } finally {
+      setUploading(false)
     }
   }
 
@@ -46,7 +68,7 @@ export default function ProfilePage({
       return
     }
 
-    updateImage(file, onUpdateAvatar)
+    updateImage(file, onUpdateAvatar, setIsAvatarUploading)
   }
 
   function handleCoverPhotoChange(event) {
@@ -55,7 +77,7 @@ export default function ProfilePage({
       return
     }
 
-    updateImage(file, onUpdateCoverPhoto)
+    updateImage(file, onUpdateCoverPhoto, setIsCoverUploading)
   }
 
   return (
@@ -67,8 +89,16 @@ export default function ProfilePage({
           alt={`${currentUser.name} cover`}
           className="profile-cover-image"
         />
-        <label className="cover-photo-upload-btn" htmlFor="cover-photo-upload">
-          <i className="fa-solid fa-camera" aria-hidden="true" /> Add cover photo
+        <label
+          className={`cover-photo-upload-btn ${isCoverUploading ? 'is-uploading' : ''}`}
+          htmlFor="cover-photo-upload"
+          aria-label="Change cover photo"
+          title="Change cover photo"
+        >
+          <i
+            className={`fa-solid ${isCoverUploading ? 'fa-spinner fa-spin' : 'fa-pen'}`}
+            aria-hidden="true"
+          />
         </label>
         <input
           id="cover-photo-upload"
@@ -87,9 +117,16 @@ export default function ProfilePage({
             alt={currentUser.name}
             className="profile-avatar-large"
           />
-          <label className="profile-avatar-upload-btn" htmlFor="profile-avatar-upload">
-            <i className="fa-solid fa-camera" aria-hidden="true" />
-            <span>Change photo</span>
+          <label
+            className={`profile-avatar-upload-btn ${isAvatarUploading ? 'is-uploading' : ''}`}
+            htmlFor="profile-avatar-upload"
+            aria-label="Change profile photo"
+            title="Change profile photo"
+          >
+            <i
+              className={`fa-solid ${isAvatarUploading ? 'fa-spinner fa-spin' : 'fa-pen'}`}
+              aria-hidden="true"
+            />
           </label>
           <input
             id="profile-avatar-upload"
@@ -103,12 +140,13 @@ export default function ProfilePage({
         <div className="profile-info-section">
           <div className="profile-name-row">
             <h1>{currentUser.name}</h1>
-            <button className="btn-secondary" onClick={() => onNavigate('settings')}>
-              <i className="fa-solid fa-gear" aria-hidden="true" /> Edit Profile
-            </button>
           </div>
 
           <p className="profile-email">{currentUser.email}</p>
+          {isAvatarUploading || isCoverUploading ? (
+            <p className="profile-uploading-hint">Saving your photo changes...</p>
+          ) : null}
+
           {uploadError ? <p className="composer-upload-error">{uploadError}</p> : null}
 
           {/* Stats Row */}
@@ -124,6 +162,59 @@ export default function ProfilePage({
             <div className="stat-item">
               <span className="stat-number">{currentUser.totalVotes}</span>
               <span className="stat-label">Challenge Votes</span>
+            </div>
+          </div>
+
+          <div className="profile-action-row" aria-label="Profile actions">
+            <button type="button" className="fb-primary-action-btn" onClick={() => onAddStory?.()}>
+              <i className="fa-solid fa-circle-plus" aria-hidden="true" /> Add to Story
+            </button>
+
+            <div className="profile-more-wrap" ref={moreMenuRef}>
+              <button
+                type="button"
+                className="fb-secondary-action-btn"
+                onClick={() => setIsMoreMenuOpen((open) => !open)}
+                aria-haspopup="menu"
+                aria-expanded={isMoreMenuOpen}
+              >
+                <i className="fa-solid fa-ellipsis" aria-hidden="true" /> More
+              </button>
+
+              {isMoreMenuOpen ? (
+                <div className="profile-more-menu" role="menu" aria-label="More profile actions">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setActiveTab('posts')
+                      setIsMoreMenuOpen(false)
+                    }}
+                  >
+                    <i className="fa-solid fa-image" aria-hidden="true" /> View Posts
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setActiveTab('about')
+                      setIsMoreMenuOpen(false)
+                    }}
+                  >
+                    <i className="fa-solid fa-circle-info" aria-hidden="true" /> About Profile
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      onNavigate?.('settings')
+                      setIsMoreMenuOpen(false)
+                    }}
+                  >
+                    <i className="fa-solid fa-user-pen" aria-hidden="true" /> Edit Profile
+                  </button>
+                </div>
+              ) : null}
             </div>
           </div>
         </div>

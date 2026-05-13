@@ -2,6 +2,7 @@ export const posts = [
   {
     id: 101,
     userId: 2,
+    postType: 'challenge',
     timestamp: '2h ago',
     text: 'Today challenge: best 30-second vocal hook. Drop your entry and get votes.',
     mediaType: 'image',
@@ -16,6 +17,7 @@ export const posts = [
   {
     id: 102,
     userId: 1,
+    postType: 'home',
     timestamp: '4h ago',
     text: 'Practicing harmony transitions. Let me know what you think.',
     mediaType: 'video',
@@ -23,12 +25,13 @@ export const posts = [
     likes: 21,
     comments: 7,
     shares: 3,
-    challengeVotes: 18,
-    challengeTitle: 'Harmony Flow',
+    challengeVotes: 0,
+    challengeTitle: '',
   },
   {
     id: 103,
     userId: 3,
+    postType: 'home',
     timestamp: '7h ago',
     text: 'No media today. Just your reminder: consistency beats perfection.',
     mediaType: null,
@@ -36,7 +39,7 @@ export const posts = [
     likes: 35,
     comments: 10,
     shares: 8,
-    challengeVotes: 14,
-    challengeTitle: 'Daily Consistency',
+    challengeVotes: 0,
+    challengeTitle: '',
   },
 ]
