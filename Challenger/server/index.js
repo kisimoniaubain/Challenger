@@ -6,6 +6,8 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
+  getDatabaseMode,
+  initDatabase,
   listMessages,
   listPosts,
   listStories,
@@ -108,7 +110,7 @@ if (existsSync(distDirectory)) {
 }
 
 app.get('/api/health', (_request, response) => {
-  response.json({ ok: true })
+  response.json({ ok: true, dataMode: getDatabaseMode() })
 })
 
 app.get('/api/auth/google/config', (_request, response) => {
@@ -120,13 +122,13 @@ app.get('/api/auth/google/config', (_request, response) => {
   })
 })
 
-app.get('/api/users', (_request, response) => {
-  response.json(listUsers())
+app.get('/api/users', async (_request, response) => {
+  response.json(await listUsers())
 })
 
-app.put('/api/users/bulk', (request, response) => {
+app.put('/api/users/bulk', async (request, response) => {
   try {
-    replaceUsers(Array.isArray(request.body) ? request.body : [])
+    await replaceUsers(Array.isArray(request.body) ? request.body : [])
     response.json({ ok: true })
   } catch (error) {
     console.error(error)
@@ -134,13 +136,13 @@ app.put('/api/users/bulk', (request, response) => {
   }
 })
 
-app.get('/api/posts', (_request, response) => {
-  response.json(listPosts())
+app.get('/api/posts', async (_request, response) => {
+  response.json(await listPosts())
 })
 
-app.put('/api/posts/bulk', (request, response) => {
+app.put('/api/posts/bulk', async (request, response) => {
   try {
-    replacePosts(Array.isArray(request.body) ? request.body : [])
+    await replacePosts(Array.isArray(request.body) ? request.body : [])
     response.json({ ok: true })
   } catch (error) {
     console.error(error)
@@ -148,13 +150,13 @@ app.put('/api/posts/bulk', (request, response) => {
   }
 })
 
-app.get('/api/stories', (_request, response) => {
-  response.json(listStories())
+app.get('/api/stories', async (_request, response) => {
+  response.json(await listStories())
 })
 
-app.put('/api/stories/bulk', (request, response) => {
+app.put('/api/stories/bulk', async (request, response) => {
   try {
-    replaceStories(Array.isArray(request.body) ? request.body : [])
+    await replaceStories(Array.isArray(request.body) ? request.body : [])
     response.json({ ok: true })
   } catch (error) {
     console.error(error)
@@ -162,13 +164,13 @@ app.put('/api/stories/bulk', (request, response) => {
   }
 })
 
-app.get('/api/messages', (_request, response) => {
-  response.json(listMessages())
+app.get('/api/messages', async (_request, response) => {
+  response.json(await listMessages())
 })
 
-app.put('/api/messages/bulk', (request, response) => {
+app.put('/api/messages/bulk', async (request, response) => {
   try {
-    replaceMessages(Array.isArray(request.body) ? request.body : [])
+    await replaceMessages(Array.isArray(request.body) ? request.body : [])
     response.json({ ok: true })
   } catch (error) {
     console.error(error)
@@ -264,6 +266,18 @@ if (existsSync(distDirectory)) {
   })
 }
 
-app.listen(port, () => {
-  console.log(`Challenger server running on http://localhost:${port}`)
-})
+async function startServer() {
+  try {
+    await initDatabase()
+    const dataMode = getDatabaseMode()
+    app.listen(port, () => {
+      console.log(`Challenger server running on http://localhost:${port}`)
+      console.log(`Data mode: ${dataMode}`)
+    })
+  } catch (error) {
+    console.error('Failed to connect to MongoDB:', error?.message || error)
+    process.exit(1)
+  }
+}
+
+startServer()

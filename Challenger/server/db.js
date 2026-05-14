@@ -1,135 +1,92 @@
-import { copyFileSync, existsSync, mkdirSync } from 'node:fs'
-import os from 'node:os'
-import path from 'node:path'
-import { DatabaseSync } from 'node:sqlite'
-import { fileURLToPath } from 'node:url'
+import mongoose from 'mongoose'
 import { users as seedUsers } from '../src/data/users.js'
 import { posts as seedPosts } from '../src/data/posts.js'
 import { messages as seedMessages } from '../src/data/messages.js'
 
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
+const mongoUri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/challenger'
 
-function getPersistentRootDirectory() {
-  if (process.env.CHALLENGER_DATA_DIR) {
-    return process.env.CHALLENGER_DATA_DIR
-  }
+const mediaItemSchema = new mongoose.Schema(
+  {
+    type: { type: String, default: null },
+    url: { type: String, default: null },
+  },
+  { _id: false },
+)
 
-  if (process.platform === 'win32' && process.env.LOCALAPPDATA) {
-    return path.join(process.env.LOCALAPPDATA, 'Challenger')
-  }
+const userSchema = new mongoose.Schema(
+  {
+    id: { type: Number, required: true, unique: true, index: true },
+    name: { type: String, required: true, default: '' },
+    email: { type: String, required: true, unique: true, index: true, default: '' },
+    password: { type: String, default: '' },
+    avatar: { type: String, default: '' },
+    coverPhoto: { type: String, default: '' },
+    totalVotes: { type: Number, default: 0 },
+    googleId: { type: String, default: null },
+    gender: { type: String, default: '' },
+  },
+  { versionKey: false },
+)
 
-  return path.join(os.homedir(), '.challenger')
-}
+const postSchema = new mongoose.Schema(
+  {
+    id: { type: Number, required: true, unique: true, index: true },
+    userId: { type: Number, required: true },
+    timestamp: { type: String, required: true, default: '' },
+    createdAt: { type: String, default: '' },
+    text: { type: String, default: '' },
+    mediaItems: { type: [mediaItemSchema], default: [] },
+    mediaType: { type: String, default: null },
+    mediaUrl: { type: String, default: null },
+    likes: { type: Number, default: 0 },
+    comments: { type: Number, default: 0 },
+    shares: { type: Number, default: 0 },
+    challengeVotes: { type: Number, default: 0 },
+    challengeTitle: { type: String, default: '' },
+  },
+  { versionKey: false },
+)
 
-const rootDirectory = getPersistentRootDirectory()
-const dataDirectory = path.join(rootDirectory, 'data')
-const databasePath = path.join(dataDirectory, 'challenger.db')
-const legacyDatabasePath = path.join(__dirname, 'data', 'challenger.db')
+const storySchema = new mongoose.Schema(
+  {
+    id: { type: Number, required: true, unique: true, index: true },
+    userId: { type: Number, required: true },
+    timestamp: { type: String, required: true, default: '' },
+    createdAt: { type: String, default: '' },
+    text: { type: String, default: '' },
+    mediaType: { type: String, default: null },
+    mediaUrl: { type: String, default: null },
+    musicUrl: { type: String, default: null },
+    musicName: { type: String, default: '' },
+    challengeTitle: { type: String, default: '' },
+  },
+  { versionKey: false },
+)
 
-mkdirSync(dataDirectory, { recursive: true })
+const messageSchema = new mongoose.Schema(
+  {
+    id: { type: Number, required: true, unique: true, index: true },
+    fromUserId: { type: Number, required: true },
+    toUserId: { type: Number, required: true },
+    text: { type: String, required: true, default: '' },
+    timestamp: { type: String, required: true, default: '' },
+  },
+  { versionKey: false },
+)
 
-if (!existsSync(databasePath) && existsSync(legacyDatabasePath)) {
-  copyFileSync(legacyDatabasePath, databasePath)
-}
+const User = mongoose.models.ChallengerUser || mongoose.model('ChallengerUser', userSchema)
+const Post = mongoose.models.ChallengerPost || mongoose.model('ChallengerPost', postSchema)
+const Story = mongoose.models.ChallengerStory || mongoose.model('ChallengerStory', storySchema)
+const Message = mongoose.models.ChallengerMessage || mongoose.model('ChallengerMessage', messageSchema)
 
-const database = new DatabaseSync(databasePath)
+let hasInitializedDatabase = false
+let databaseMode = 'mongo'
 
-database.exec(`
-  CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY,
-    name TEXT NOT NULL,
-    email TEXT NOT NULL UNIQUE,
-    password TEXT DEFAULT '',
-    avatar TEXT,
-    coverPhoto TEXT,
-    totalVotes INTEGER DEFAULT 0,
-    googleId TEXT,
-    gender TEXT DEFAULT ''
-  );
-
-  CREATE TABLE IF NOT EXISTS posts (
-    id INTEGER PRIMARY KEY,
-    userId INTEGER NOT NULL,
-    timestamp TEXT NOT NULL,
-    createdAt TEXT,
-    text TEXT,
-    mediaItems TEXT,
-    mediaType TEXT,
-    mediaUrl TEXT,
-    likes INTEGER DEFAULT 0,
-    comments INTEGER DEFAULT 0,
-    shares INTEGER DEFAULT 0,
-    challengeVotes INTEGER DEFAULT 0,
-    challengeTitle TEXT
-  );
-
-  CREATE TABLE IF NOT EXISTS stories (
-    id INTEGER PRIMARY KEY,
-    userId INTEGER NOT NULL,
-    timestamp TEXT NOT NULL,
-    createdAt TEXT,
-    text TEXT,
-    mediaType TEXT,
-    mediaUrl TEXT,
-    musicUrl TEXT,
-    musicName TEXT,
-    challengeTitle TEXT
-  );
-
-  CREATE TABLE IF NOT EXISTS messages (
-    id INTEGER PRIMARY KEY,
-    fromUserId INTEGER NOT NULL,
-    toUserId INTEGER NOT NULL,
-    text TEXT NOT NULL,
-    timestamp TEXT NOT NULL
-  );
-`)
-
-const userColumns = database.prepare('PRAGMA table_info(users)').all()
-if (!userColumns.some((column) => column.name === 'coverPhoto')) {
-  database.exec('ALTER TABLE users ADD COLUMN coverPhoto TEXT')
-}
-if (!userColumns.some((column) => column.name === 'gender')) {
-  database.exec("ALTER TABLE users ADD COLUMN gender TEXT DEFAULT ''")
-}
-
-const storyColumns = database.prepare('PRAGMA table_info(stories)').all()
-if (!storyColumns.some((column) => column.name === 'createdAt')) {
-  database.exec('ALTER TABLE stories ADD COLUMN createdAt TEXT')
-}
-if (!storyColumns.some((column) => column.name === 'musicUrl')) {
-  database.exec('ALTER TABLE stories ADD COLUMN musicUrl TEXT')
-}
-if (!storyColumns.some((column) => column.name === 'musicName')) {
-  database.exec('ALTER TABLE stories ADD COLUMN musicName TEXT')
-}
-
-const postColumns = database.prepare('PRAGMA table_info(posts)').all()
-if (!postColumns.some((column) => column.name === 'createdAt')) {
-  database.exec('ALTER TABLE posts ADD COLUMN createdAt TEXT')
-}
-if (!postColumns.some((column) => column.name === 'mediaItems')) {
-  database.exec('ALTER TABLE posts ADD COLUMN mediaItems TEXT')
-}
-
-function tableHasRows(tableName) {
-  return database.prepare(`SELECT COUNT(*) AS count FROM ${tableName}`).get().count > 0
-}
-
-function runReplace(tableName, items, insertItem) {
-  database.exec('BEGIN')
-
-  try {
-    database.prepare(`DELETE FROM ${tableName}`).run()
-    for (const item of items) {
-      insertItem(item)
-    }
-    database.exec('COMMIT')
-  } catch (error) {
-    database.exec('ROLLBACK')
-    throw error
-  }
+const memoryStore = {
+  users: [],
+  posts: [],
+  stories: [],
+  messages: [],
 }
 
 function toSafeNumber(value, fallback = 0) {
@@ -177,138 +134,230 @@ function normalizeMediaItems(mediaItems, mediaType, mediaUrl) {
     : []
 }
 
-function replaceUsers(users) {
-  const insertUser = database.prepare(`
-    INSERT INTO users (id, name, email, password, avatar, coverPhoto, totalVotes, googleId, gender)
-    VALUES (@id, @name, @email, @password, @avatar, @coverPhoto, @totalVotes, @googleId, @gender)
-  `)
+function toStorySeedsFromPosts(posts) {
+  return (posts || []).slice(0, 5).map((post) => ({
+    id: toSafeNumber(post.id),
+    userId: toSafeNumber(post.userId),
+    timestamp: post.timestamp || 'Just now',
+    createdAt: new Date().toISOString(),
+    text: post.text || '',
+    mediaType: post.mediaType || null,
+    mediaUrl: post.mediaUrl || null,
+    musicUrl: null,
+    musicName: '',
+    challengeTitle: post.challengeTitle || '',
+  }))
+}
 
-  runReplace('users', normalizeUsers(users), (user) => {
-      insertUser.run({
-        id: toSafeNumber(user.id),
-        name: user.name || '',
-        email: (user.email || '').trim().toLowerCase(),
-        password: user.password || '',
-        avatar: user.avatar || '',
-        coverPhoto: user.coverPhoto || '',
-        totalVotes: toSafeNumber(user.totalVotes),
-        googleId: user.googleId || null,
-        gender: user.gender || '',
-      })
+function deepClone(value) {
+  return JSON.parse(JSON.stringify(value))
+}
+
+function normalizeUserPayload(users) {
+  return normalizeUsers(users).map((user) => ({
+    id: toSafeNumber(user.id),
+    name: user.name || '',
+    email: String(user.email || '').trim().toLowerCase(),
+    password: user.password || '',
+    avatar: user.avatar || '',
+    coverPhoto: user.coverPhoto || '',
+    totalVotes: toSafeNumber(user.totalVotes),
+    googleId: user.googleId || null,
+    gender: user.gender || '',
+  }))
+}
+
+function normalizePostPayload(posts) {
+  return normalizeRows(posts).map((post) => {
+    const mediaItems = normalizeMediaItems(post.mediaItems, post.mediaType, post.mediaUrl)
+    return {
+      id: toSafeNumber(post.id),
+      userId: toSafeNumber(post.userId),
+      timestamp: post.timestamp || 'Just now',
+      createdAt: post.createdAt || new Date().toISOString(),
+      text: post.text || '',
+      mediaItems,
+      mediaType: mediaItems.length > 0 ? mediaItems[0].type : (post.mediaType || null),
+      mediaUrl: mediaItems.length > 0 ? mediaItems[0].url : (post.mediaUrl || null),
+      likes: toSafeNumber(post.likes),
+      comments: toSafeNumber(post.comments),
+      shares: toSafeNumber(post.shares),
+      challengeVotes: toSafeNumber(post.challengeVotes),
+      challengeTitle: post.challengeTitle || '',
+    }
   })
 }
 
-function replacePosts(posts) {
-  const insertPost = database.prepare(`
-    INSERT INTO posts (id, userId, timestamp, createdAt, text, mediaItems, mediaType, mediaUrl, likes, comments, shares, challengeVotes, challengeTitle)
-    VALUES (@id, @userId, @timestamp, @createdAt, @text, @mediaItems, @mediaType, @mediaUrl, @likes, @comments, @shares, @challengeVotes, @challengeTitle)
-  `)
+function normalizeStoryPayload(stories) {
+  return normalizeRows(stories).map((story) => ({
+    id: toSafeNumber(story.id),
+    userId: toSafeNumber(story.userId),
+    timestamp: story.timestamp || 'Just now',
+    createdAt: story.createdAt || new Date().toISOString(),
+    text: story.text || '',
+    mediaType: story.mediaType || null,
+    mediaUrl: story.mediaUrl || null,
+    musicUrl: story.musicUrl || null,
+    musicName: story.musicName || '',
+    challengeTitle: story.challengeTitle || '',
+  }))
+}
 
-  runReplace('posts', normalizeRows(posts), (post) => {
+function normalizeMessagePayload(messages) {
+  return normalizeRows(messages).map((message) => ({
+    id: toSafeNumber(message.id),
+    fromUserId: toSafeNumber(message.fromUserId),
+    toUserId: toSafeNumber(message.toUserId),
+    text: message.text || '',
+    timestamp: message.timestamp || 'Just now',
+  }))
+}
+
+function seedMemoryStore() {
+  memoryStore.users = normalizeUserPayload(seedUsers)
+  memoryStore.posts = normalizePostPayload(seedPosts)
+  memoryStore.stories = normalizeStoryPayload(toStorySeedsFromPosts(seedPosts))
+  memoryStore.messages = normalizeMessagePayload(seedMessages)
+}
+
+async function ensureConnected() {
+  if (mongoose.connection.readyState === 1) {
+    return
+  }
+
+  await mongoose.connect(mongoUri, {
+    serverSelectionTimeoutMS: 10000,
+  })
+}
+
+async function seedIfEmpty() {
+  const [usersCount, postsCount, storiesCount, messagesCount] = await Promise.all([
+    User.countDocuments(),
+    Post.countDocuments(),
+    Story.countDocuments(),
+    Message.countDocuments(),
+  ])
+
+  if (usersCount === 0) {
+    await replaceUsers(seedUsers)
+  }
+
+  if (postsCount === 0) {
+    await replacePosts(seedPosts)
+  }
+
+  if (storiesCount === 0) {
+    await replaceStories(toStorySeedsFromPosts(seedPosts))
+  }
+
+  if (messagesCount === 0) {
+    await replaceMessages(seedMessages)
+  }
+}
+
+export async function initDatabase() {
+  if (hasInitializedDatabase) {
+    return
+  }
+
+  try {
+    await ensureConnected()
+    await seedIfEmpty()
+    databaseMode = 'mongo'
+  } catch (error) {
+    databaseMode = 'memory'
+    seedMemoryStore()
+    console.warn('MongoDB unavailable. Falling back to in-memory data mode:', error?.message || error)
+  }
+
+  hasInitializedDatabase = true
+}
+
+export function getDatabaseMode() {
+  return databaseMode
+}
+
+export async function replaceUsers(users) {
+  const normalized = normalizeUserPayload(users)
+
+  if (databaseMode === 'memory') {
+    memoryStore.users = deepClone(normalized)
+    return
+  }
+
+  await User.deleteMany({})
+  if (normalized.length > 0) {
+    await User.insertMany(normalized, { ordered: false })
+  }
+}
+
+export async function replacePosts(posts) {
+  const normalized = normalizePostPayload(posts)
+
+  if (databaseMode === 'memory') {
+    memoryStore.posts = deepClone(normalized)
+    return
+  }
+
+  await Post.deleteMany({})
+  if (normalized.length > 0) {
+    await Post.insertMany(normalized, { ordered: false })
+  }
+}
+
+export async function replaceStories(stories) {
+  const normalized = normalizeStoryPayload(stories)
+
+  if (databaseMode === 'memory') {
+    memoryStore.stories = deepClone(normalized)
+    return
+  }
+
+  await Story.deleteMany({})
+  if (normalized.length > 0) {
+    await Story.insertMany(normalized, { ordered: false })
+  }
+}
+
+export async function replaceMessages(messages) {
+  const normalized = normalizeMessagePayload(messages)
+
+  if (databaseMode === 'memory') {
+    memoryStore.messages = deepClone(normalized)
+    return
+  }
+
+  await Message.deleteMany({})
+  if (normalized.length > 0) {
+    await Message.insertMany(normalized, { ordered: false })
+  }
+}
+
+export async function listUsers() {
+  if (databaseMode === 'memory') {
+    return deepClone([...memoryStore.users].sort((left, right) => left.id - right.id))
+  }
+
+  return User.find({}).sort({ id: 1 }).lean()
+}
+
+export async function listPosts() {
+  if (databaseMode === 'memory') {
+    const posts = [...memoryStore.posts].sort((left, right) => right.id - left.id)
+    return deepClone(posts).map((post) => {
       const mediaItems = normalizeMediaItems(post.mediaItems, post.mediaType, post.mediaUrl)
-      insertPost.run({
-        id: toSafeNumber(post.id),
-        userId: toSafeNumber(post.userId),
-        timestamp: post.timestamp,
-        createdAt: post.createdAt || new Date().toISOString(),
-        text: post.text || '',
-        mediaItems: JSON.stringify(mediaItems),
+      return {
+        ...post,
+        mediaItems,
         mediaType: mediaItems.length > 0 ? mediaItems[0].type : (post.mediaType || null),
         mediaUrl: mediaItems.length > 0 ? mediaItems[0].url : (post.mediaUrl || null),
-        likes: toSafeNumber(post.likes),
-        comments: toSafeNumber(post.comments),
-        shares: toSafeNumber(post.shares),
-        challengeVotes: toSafeNumber(post.challengeVotes),
-        challengeTitle: post.challengeTitle || '',
-      })
-  })
-}
+      }
+    })
+  }
 
-function replaceStories(stories) {
-  const insertStory = database.prepare(`
-    INSERT INTO stories (id, userId, timestamp, createdAt, text, mediaType, mediaUrl, musicUrl, musicName, challengeTitle)
-    VALUES (@id, @userId, @timestamp, @createdAt, @text, @mediaType, @mediaUrl, @musicUrl, @musicName, @challengeTitle)
-  `)
-
-  runReplace('stories', normalizeRows(stories), (story) => {
-      insertStory.run({
-        id: toSafeNumber(story.id),
-        userId: toSafeNumber(story.userId),
-        timestamp: story.timestamp,
-        createdAt: story.createdAt || new Date().toISOString(),
-        text: story.text || '',
-        mediaType: story.mediaType || null,
-        mediaUrl: story.mediaUrl || null,
-        musicUrl: story.musicUrl || null,
-        musicName: story.musicName || '',
-        challengeTitle: story.challengeTitle || '',
-      })
-  })
-}
-
-function replaceMessages(messages) {
-  const insertMessage = database.prepare(`
-    INSERT INTO messages (id, fromUserId, toUserId, text, timestamp)
-    VALUES (@id, @fromUserId, @toUserId, @text, @timestamp)
-  `)
-
-  runReplace('messages', normalizeRows(messages), (message) => {
-      insertMessage.run({
-        id: toSafeNumber(message.id),
-        fromUserId: toSafeNumber(message.fromUserId),
-        toUserId: toSafeNumber(message.toUserId),
-        text: message.text,
-        timestamp: message.timestamp,
-      })
-  })
-}
-
-if (!tableHasRows('users')) {
-  replaceUsers(seedUsers)
-}
-
-if (!tableHasRows('posts')) {
-  replacePosts(seedPosts)
-}
-
-if (!tableHasRows('stories')) {
-  replaceStories(
-    seedPosts.slice(0, 5).map((post) => ({
-      id: post.id,
-      userId: post.userId,
-      timestamp: post.timestamp,
-      createdAt: new Date().toISOString(),
-      text: post.text,
-      mediaType: post.mediaType,
-      mediaUrl: post.mediaUrl,
-      musicUrl: null,
-      musicName: '',
-      challengeTitle: post.challengeTitle,
-    })),
-  )
-}
-
-if (!tableHasRows('messages')) {
-  replaceMessages(seedMessages)
-}
-
-export function listUsers() {
-  return database.prepare('SELECT * FROM users ORDER BY id').all()
-}
-
-export function listPosts() {
-  return database.prepare('SELECT * FROM posts ORDER BY id DESC').all().map((post) => {
-    let parsedMediaItems = []
-
-    try {
-      const decoded = JSON.parse(post.mediaItems || '[]')
-      parsedMediaItems = Array.isArray(decoded) ? decoded : []
-    } catch {
-      parsedMediaItems = []
-    }
-
-    const mediaItems = normalizeMediaItems(parsedMediaItems, post.mediaType, post.mediaUrl)
-
+  const posts = await Post.find({}).sort({ id: -1 }).lean()
+  return posts.map((post) => {
+    const mediaItems = normalizeMediaItems(post.mediaItems, post.mediaType, post.mediaUrl)
     return {
       ...post,
       mediaItems,
@@ -318,12 +367,18 @@ export function listPosts() {
   })
 }
 
-export function listStories() {
-  return database.prepare('SELECT * FROM stories ORDER BY id DESC').all()
+export async function listStories() {
+  if (databaseMode === 'memory') {
+    return deepClone([...memoryStore.stories].sort((left, right) => right.id - left.id))
+  }
+
+  return Story.find({}).sort({ id: -1 }).lean()
 }
 
-export function listMessages() {
-  return database.prepare('SELECT * FROM messages ORDER BY id').all()
-}
+export async function listMessages() {
+  if (databaseMode === 'memory') {
+    return deepClone([...memoryStore.messages].sort((left, right) => left.id - right.id))
+  }
 
-export { replaceUsers, replacePosts, replaceStories, replaceMessages }
+  return Message.find({}).sort({ id: 1 }).lean()
+}

@@ -1,4 +1,12 @@
-export default function NotificationsPage({ currentUser, users, posts, messages, notifications = [], t }) {
+export default function NotificationsPage({
+  currentUser,
+  users,
+  posts,
+  messages,
+  notifications = [],
+  onOpenChat,
+  t,
+}) {
   const tx = t || ((value) => value)
   const timelineNotifications = notifications
     .filter((item) => item.targetUserId === currentUser.id)
@@ -94,7 +102,16 @@ export default function NotificationsPage({ currentUser, users, posts, messages,
         {receivedMessages.map((message) => {
           const sender = users.find((user) => user.id === message.fromUserId)
           return (
-            <article key={`message-${message.id}`} className="leaderboard-item">
+            <button
+              key={`message-${message.id}`}
+              type="button"
+              className="leaderboard-item leaderboard-item-action"
+              onClick={() => {
+                if (sender?.id) {
+                  onOpenChat?.(sender.id)
+                }
+              }}
+            >
               <span className="rank">
                 <i className="fa-solid fa-envelope" aria-hidden="true" />
               </span>
@@ -103,7 +120,7 @@ export default function NotificationsPage({ currentUser, users, posts, messages,
                 <strong>{sender?.name || 'Someone'} sent you a message</strong>
                 <p>{message.text}</p>
               </div>
-            </article>
+            </button>
           )
         })}
 

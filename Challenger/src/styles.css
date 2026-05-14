@@ -315,6 +315,15 @@ select {
   color: var(--text-muted);
 }
 
+.top-search-section-title {
+  margin: 6px 8px 4px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
 .top-search-avatar,
 .top-search-badge {
   width: 32px;
@@ -339,6 +348,41 @@ select {
   margin: 8px;
   font-size: 0.84rem;
   color: var(--text-muted);
+}
+
+.top-search-view-all-btn {
+  width: calc(100% - 10px);
+  margin: 4px 5px 2px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 8px 10px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.top-search-view-all-btn:hover {
+  filter: brightness(0.98);
+}
+
+.top-search-clear-btn {
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.top-search-clear-btn:hover {
+  color: var(--text);
 }
 
 .top-nav-actions {
@@ -442,6 +486,34 @@ select {
 .bottom-nav-icon,
 .fb-side-icon {
   line-height: 1;
+}
+
+.nav-icon-with-badge {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-count-badge {
+  position: absolute;
+  top: -8px;
+  right: -12px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #16a34a;
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 800;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--surface);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.24);
+  pointer-events: none;
 }
 
 .avatar-icon-btn {
@@ -1026,6 +1098,30 @@ select {
 
 .fb-composer-pill:hover {
   background: var(--surface-muted);
+}
+
+.fb-composer-media-btn {
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface-soft);
+  color: var(--accent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.8rem;
+  height: 40px;
+  width: 40px;
+  padding: 0;
+  cursor: pointer;
+}
+
+.fb-composer-media-btn:hover {
+  background: var(--accent-soft);
+}
+
+.composer-quick-media-input {
+  display: none;
 }
 
 .stories-strip {
@@ -1827,6 +1923,24 @@ select {
   grid-template-columns: 320px 1fr;
   gap: 16px;
   padding: 12px 8px;
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+.messages-page.thread-only {
+  grid-template-columns: 1fr;
+}
+
+.messages-page.thread-only .messages-sidebar {
+  display: none;
+}
+
+.messages-page.list-only {
+  grid-template-columns: 1fr;
+}
+
+.messages-page.list-only .messages-thread-shell {
+  display: none;
 }
 
 .messages-sidebar,
@@ -1839,6 +1953,8 @@ select {
 
 .messages-sidebar {
   padding: 14px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .messages-sidebar-head h2 {
@@ -1853,6 +1969,8 @@ select {
 .messages-contact-list {
   display: grid;
   gap: 8px;
+  min-width: 0;
+  overflow-x: hidden;
 }
 
 .messages-contact {
@@ -1865,6 +1983,8 @@ select {
   gap: 10px;
   padding: 10px;
   text-align: left;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .messages-contact.active,
@@ -1881,11 +2001,17 @@ select {
 }
 
 .messages-contact-copy {
+  flex: 1;
   min-width: 0;
+  overflow: hidden;
 }
 
 .messages-contact-copy strong {
   display: block;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .messages-contact-copy p {
@@ -1899,16 +2025,40 @@ select {
 
 .messages-thread-shell {
   display: grid;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  height: clamp(460px, 72vh, calc(100dvh - 170px));
+  min-width: 0;
   overflow: hidden;
 }
 
 .messages-thread-head {
+  position: sticky;
+  top: 0;
+  z-index: 3;
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 14px;
+  background: var(--surface);
   border-bottom: 1px solid var(--border);
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.08);
+}
+
+.messages-back-btn {
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface-soft);
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.messages-back-btn:hover {
+  background: var(--surface-muted);
 }
 
 .messages-thread-head h3 {
@@ -1924,38 +2074,113 @@ select {
 .messages-thread-body {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 0;
   padding: 14px;
   background: var(--surface-soft);
+  min-width: 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+@media (max-width: 720px) {
+  .messages-thread-shell {
+    height: calc(100dvh - 150px);
+  }
 }
 
 .message-bubble {
-  max-width: min(72%, 420px);
-  border-radius: 18px;
-  padding: 10px 12px;
+  width: fit-content;
+  max-width: min(100%, 520px);
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
 }
 
-.message-bubble p {
-  margin: 0;
+.message-bubble:first-child {
+  margin-top: 0;
 }
 
-.message-bubble span {
-  display: block;
-  margin-top: 5px;
-  font-size: 0.72rem;
-  opacity: 0.7;
+.message-bubble.is-grouped {
+  margin-top: 3px;
 }
 
 .message-bubble.mine {
   align-self: flex-end;
-  background: var(--accent);
-  color: #fff;
+  align-items: flex-end;
 }
 
 .message-bubble.theirs {
   align-self: flex-start;
+  align-items: flex-start;
+  cursor: pointer;
+}
+
+.message-text-pill {
+  border-radius: 18px;
+  padding: 10px 12px;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.message-text-pill.mine {
+  background: var(--accent);
+  color: #fff;
+}
+
+.message-text-pill.theirs {
   background: var(--surface);
   border: 1px solid var(--border);
+}
+
+.message-text-pill p {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  hyphens: auto;
+}
+
+.message-replied-snippet {
+  width: 100%;
+  border-left: 3px solid var(--accent);
+  border-radius: 10px;
+  padding: 7px 9px;
+  min-width: 0;
+}
+
+.message-replied-snippet.mine {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.message-replied-snippet.theirs {
+  background: color-mix(in srgb, var(--surface-soft) 85%, #fff);
+}
+
+.message-replied-snippet strong {
+  display: block;
+  font-size: 0.74rem;
+  margin-bottom: 2px;
+}
+
+.message-replied-snippet p {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.message-bubble-time {
+  display: block;
+  max-width: 100%;
+  font-size: 0.72rem;
+  opacity: 0.78;
+  color: var(--text-muted);
 }
 
 .messages-composer {
@@ -1966,12 +2191,62 @@ select {
   border-top: 1px solid var(--border);
 }
 
-.messages-composer input {
+.messages-composer textarea {
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: 16px;
   background: var(--surface-soft);
   color: var(--text);
+  min-width: 0;
   padding: 10px 14px;
+  min-height: 42px;
+  max-height: 160px;
+  resize: none;
+  overflow-y: auto;
+  line-height: 1.35;
+}
+
+.messages-reply-context {
+  grid-column: 1 / -1;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent);
+  border-radius: 10px;
+  background: var(--surface-soft);
+  padding: 8px 10px;
+  position: relative;
+}
+
+.messages-reply-context strong {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--accent);
+}
+
+.messages-reply-context p {
+  margin: 4px 22px 0 0;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 720px) {
+  .message-bubble {
+    max-width: 94%;
+  }
+}
+
+.messages-reply-context button {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
 }
 
 .messages-composer button {
@@ -1979,11 +2254,14 @@ select {
   border-radius: 999px;
   background: var(--accent);
   color: #fff;
-  padding: 10px 14px;
+  width: 42px;
+  height: 42px;
+  padding: 0;
   font-weight: 700;
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  justify-content: center;
 }
 
 .messages-empty-state {
@@ -2668,12 +2946,30 @@ body.theme-dark .vote-action-btn {
   gap: 8px;
   padding: 6px 0;
   border-radius: 8px;
-  cursor: pointer;
   transition: background 130ms ease;
 }
 
 .fb-contact-row:hover {
   background: var(--surface-soft);
+}
+
+.fb-follow-row {
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.fb-contact-main-btn {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  padding: 0;
+  cursor: pointer;
 }
 
 .fb-contact-rank {
@@ -2708,6 +3004,33 @@ body.theme-dark .vote-action-btn {
   margin: 1px 0 0;
   font-size: 0.72rem;
   color: var(--text-muted);
+}
+
+.challenge-search-result-card {
+  display: grid;
+  gap: 6px;
+}
+
+.challenge-search-match {
+  margin: 0;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-soft);
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.challenge-search-match strong {
+  color: var(--text);
+}
+
+.challenge-search-mark {
+  background: color-mix(in srgb, var(--accent) 28%, transparent);
+  color: var(--text);
+  padding: 0 2px;
+  border-radius: 4px;
+  font-weight: 700;
 }
 .story-owner-actions {
   position: absolute;
@@ -3033,17 +3356,24 @@ body.theme-dark .vote-action-btn {
   display: flex;
   justify-content: flex-end;
   gap: 6px;
-  margin-bottom: 6px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 140ms ease;
 }
+
+.message-bubble.mine:hover .message-bubble-actions,
+.message-bubble.mine:focus-within .message-bubble-actions,
+.message-bubble.theirs:hover .message-bubble-actions,
+.message-bubble.theirs:focus-within .message-bubble-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
 .message-bubble-actions button {
   width: 24px;
   height: 24px;
   border: 0;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.18);
-  color: inherit;
-}
-.message-bubble.theirs .message-bubble-actions button {
   background: var(--surface-soft);
   color: var(--text);
 }
@@ -3789,6 +4119,36 @@ body.theme-dark .fb-secondary-action-btn:hover {
   margin: 0 0 8px;
 }
 
+.settings-data-mode {
+  margin: 8px 0 0;
+}
+
+.settings-mode-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  border: 1px solid var(--border);
+  background: var(--surface-soft);
+  color: var(--text);
+}
+
+.settings-mode-badge.mode-mongo {
+  color: #0f8a4b;
+  border-color: #8de0b4;
+  background: #eafaf2;
+}
+
+.settings-mode-badge.mode-memory,
+.settings-mode-badge.mode-offline {
+  color: #9a5b00;
+  border-color: #f2c078;
+  background: #fff7e9;
+}
+
 .settings-section {
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -4315,6 +4675,18 @@ body.theme-dark .challenge-card .vote-btn {
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 10px;
+}
+
+.leaderboard-item-action {
+  width: 100%;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.leaderboard-item-action:hover {
+  background: var(--surface-soft);
 }
 
 .people-list-item {

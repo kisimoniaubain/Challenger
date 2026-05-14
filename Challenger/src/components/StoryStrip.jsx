@@ -58,6 +58,7 @@ export default function StoryStrip({
   onCreateStoryFromCamera,
   onEditStory,
   onDeleteStory,
+  onSendStoryMessage,
   onNavigateToProfile,
   onStoryReaction,
 }) {
@@ -111,8 +112,20 @@ export default function StoryStrip({
           stories: userStories,
         }
       })
+      .sort((leftGroup, rightGroup) => {
+        if (leftGroup.userId === currentUserId && rightGroup.userId !== currentUserId) {
+          return -1
+        }
+        if (rightGroup.userId === currentUserId && leftGroup.userId !== currentUserId) {
+          return 1
+        }
+
+        const leftTime = Date.parse(leftGroup.latestStory?.createdAt || '') || 0
+        const rightTime = Date.parse(rightGroup.latestStory?.createdAt || '') || 0
+        return rightTime - leftTime
+      })
       .slice(0, 12)
-  }, [activeStories, users])
+  }, [activeStories, currentUserId, users])
 
   const activeStory = activeStoryIndex !== null ? activeUserStories[activeStoryIndex] : null
   const activeAuthor = activeStory ? users.find((user) => user.id === activeStory.userId) : null
@@ -259,6 +272,10 @@ export default function StoryStrip({
   function handleSendStoryMessage() {
     if (!activeStory || !messageDraft.trim()) {
       return
+    }
+
+    if (activeStory.userId !== currentUserId) {
+      onSendStoryMessage?.(activeStory.userId, messageDraft.trim())
     }
 
     setStoryMessages((current) => {

@@ -7,8 +7,10 @@ export default function TopNav({
   onTabChange,
   users,
   posts,
+  badgeCounts = {},
   onNavigateToProfile,
   onNavigateToMenu,
+  onSearchQueryChange,
   t,
 }) {
   const tx = t || ((value) => value)
@@ -23,12 +25,13 @@ export default function TopNav({
   const searchWrapRef = useRef(null)
 
   const normalizedQuery = searchQuery.trim().toLowerCase()
+  const trimmedQuery = searchQuery.trim()
   const userMatches = normalizedQuery
     ? (users || [])
         .filter(
           (user) =>
-            user.name.toLowerCase().includes(normalizedQuery) ||
-            user.email.toLowerCase().includes(normalizedQuery),
+            String(user.name || '').toLowerCase().includes(normalizedQuery) ||
+            String(user.email || '').toLowerCase().includes(normalizedQuery),
         )
         .slice(0, 5)
     : []
@@ -37,8 +40,8 @@ export default function TopNav({
     ? (posts || [])
         .filter(
           (post) =>
-            (post.challengeTitle || '').toLowerCase().includes(normalizedQuery) ||
-            (post.text || '').toLowerCase().includes(normalizedQuery),
+            (String(post.challengeTitle || '').toLowerCase().includes(normalizedQuery) ||
+            String(post.text || '').toLowerCase().includes(normalizedQuery)),
         )
         .slice(0, 5)
     : []
@@ -62,11 +65,36 @@ export default function TopNav({
     onNavigateToProfile?.(userId)
     setSearchQuery('')
     setShowSearchResults(false)
+    onSearchQueryChange?.('')
   }
 
-  function handleSearchChallengeClick() {
+  function handleSearchChallengeClick(post) {
+    const nextQuery = String(post?.challengeTitle || post?.text || trimmedQuery).trim()
+    onSearchQueryChange?.(nextQuery)
     onTabChange('challenges')
     setShowSearchResults(false)
+  }
+
+  function handleSearchSubmit(event) {
+    event.preventDefault()
+    if (!trimmedQuery) {
+      return
+    }
+
+    if (userMatches.length > 0) {
+      handleSearchUserClick(userMatches[0].id)
+      return
+    }
+
+    onSearchQueryChange?.(trimmedQuery)
+    onTabChange('challenges')
+    setShowSearchResults(false)
+  }
+
+  function handleClearSearch() {
+    setSearchQuery('')
+    setShowSearchResults(false)
+    onSearchQueryChange?.('')
   }
 
   return (
@@ -86,7 +114,7 @@ export default function TopNav({
         </div>
 
         <div className="top-search-row">
-          <div className="top-search-pill" ref={searchWrapRef}>
+          <form className="top-search-pill" ref={searchWrapRef} onSubmit={handleSearchSubmit}>
             <i className="fa-solid fa-magnifying-glass" aria-hidden="true" />
             <input
               className="top-search-input"
@@ -98,11 +126,29 @@ export default function TopNav({
                 setShowSearchResults(true)
               }}
               onFocus={() => setShowSearchResults(true)}
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') {
+                  setShowSearchResults(false)
+                }
+              }}
               aria-label={tx('Search people and challenges')}
             />
 
+            {trimmedQuery ? (
+              <button
+                type="button"
+                className="top-search-clear-btn"
+                onClick={handleClearSearch}
+                aria-label="Clear search"
+                title="Clear"
+              >
+                <i className="fa-solid fa-xmark" aria-hidden="true" />
+              </button>
+            ) : null}
+
             {showSearchResults && normalizedQuery ? (
               <div className="top-search-results" role="listbox" aria-label="Search results">
+                {userMatches.length > 0 ? <p className="top-search-section-title">People</p> : null}
                 {userMatches.map((user) => (
                   <button
                     key={`user-${user.id}`}
@@ -118,12 +164,13 @@ export default function TopNav({
                   </button>
                 ))}
 
+                {challengeMatches.length > 0 ? <p className="top-search-section-title">Posts & Challenges</p> : null}
                 {challengeMatches.map((post) => (
                   <button
                     key={`post-${post.id}`}
                     type="button"
                     className="top-search-item"
-                    onClick={handleSearchChallengeClick}
+                    onClick={() => handleSearchChallengeClick(post)}
                   >
                     <span className="top-search-badge">
                       <i className="fa-solid fa-microphone-lines" aria-hidden="true" />
@@ -135,12 +182,19 @@ export default function TopNav({
                   </button>
                 ))}
 
+                <button
+                  type="submit"
+                  className="top-search-view-all-btn"
+                >
+                  Search for "{trimmedQuery}"
+                </button>
+
                 {!userMatches.length && !challengeMatches.length ? (
                   <p className="top-search-empty">{tx('No results found.')}</p>
                 ) : null}
               </div>
             ) : null}
-          </div>
+          </form>
 
           <div className="top-nav-actions">
             <button
@@ -171,19 +225,30 @@ export default function TopNav({
 
       {/* Row 2: animated tab bar — hidden on small mobile (uses BottomNav instead) */}
       <nav className="top-tab-bar" aria-label="Main navigation">
-        {tabItems.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            className={`top-tab-btn ${activeTab === item.id ? 'active' : ''}`}
-            onClick={() => onTabChange(item.id)}
-            aria-current={activeTab === item.id ? 'page' : undefined}
-          >
-            <i className={`top-tab-icon ${item.icon}`} aria-hidden="true" />
-            <span className="top-tab-label">{item.label}</span>
-            {activeTab === item.id && <span className="top-tab-underline" />}
-          </button>
-        ))}
+        {tabItems.map((item) => {
+          const iconBadgeCount = Number(badgeCounts?.[item.id]) || 0
+
+          return (
+            <button
+              key={item.id}
+              type="button"
+              className={`top-tab-btn ${activeTab === item.id ? 'active' : ''}`}
+              onClick={() => onTabChange(item.id)}
+              aria-current={activeTab === item.id ? 'page' : undefined}
+            >
+              <span className="nav-icon-with-badge">
+                <i className={`top-tab-icon ${item.icon}`} aria-hidden="true" />
+                {iconBadgeCount > 0 && activeTab !== item.id ? (
+                  <span className="nav-count-badge" aria-label={`${iconBadgeCount} new ${item.label.toLowerCase()}`}>
+                    {iconBadgeCount > 99 ? '99+' : iconBadgeCount}
+                  </span>
+                ) : null}
+              </span>
+              <span className="top-tab-label">{item.label}</span>
+              {activeTab === item.id && <span className="top-tab-underline" />}
+            </button>
+          )
+        })}
       </nav>
     </header>
   )

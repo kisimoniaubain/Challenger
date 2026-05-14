@@ -1,4 +1,4 @@
-export default function BottomNav({ activeTab, onTabChange, t }) {
+export default function BottomNav({ activeTab, onTabChange, badgeCounts = {}, t }) {
   const tx = t || ((value) => value)
   const navItems = [
     { id: 'home', label: tx('Home'), icon: 'fa-solid fa-house' },
@@ -9,17 +9,28 @@ export default function BottomNav({ activeTab, onTabChange, t }) {
 
   return (
     <nav className="bottom-nav" aria-label="Bottom navigation">
-      {navItems.map((item) => (
-        <button
-          key={item.id}
-          type="button"
-          className={`bottom-nav-item ${activeTab === item.id ? 'active' : ''}`}
-          onClick={() => onTabChange(item.id)}
-        >
-          <i className={`bottom-nav-icon ${item.icon}`} aria-hidden="true" />
-          <span className="bottom-nav-label">{item.label}</span>
-        </button>
-      ))}
+      {navItems.map((item) => {
+        const iconBadgeCount = Number(badgeCounts?.[item.id]) || 0
+
+        return (
+          <button
+            key={item.id}
+            type="button"
+            className={`bottom-nav-item ${activeTab === item.id ? 'active' : ''}`}
+            onClick={() => onTabChange(item.id)}
+          >
+            <span className="nav-icon-with-badge">
+              <i className={`bottom-nav-icon ${item.icon}`} aria-hidden="true" />
+              {iconBadgeCount > 0 && activeTab !== item.id ? (
+                <span className="nav-count-badge" aria-label={`${iconBadgeCount} new ${item.label.toLowerCase()}`}>
+                  {iconBadgeCount > 99 ? '99+' : iconBadgeCount}
+                </span>
+              ) : null}
+            </span>
+            <span className="bottom-nav-label">{item.label}</span>
+          </button>
+        )
+      })}
     </nav>
   )
 }

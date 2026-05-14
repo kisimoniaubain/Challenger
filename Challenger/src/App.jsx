@@ -32,11 +32,16 @@ const POSTS_KEY = 'challenger_posts'
 const STORIES_KEY = 'challenger_stories'
 const MESSAGES_KEY = 'challenger_messages'
 const NOTIFICATIONS_KEY = 'challenger_notifications'
+const NOTIFICATIONS_LAST_SEEN_AT_KEY = 'challenger_notifications_last_seen_at'
+const HOME_LAST_SEEN_AT_KEY = 'challenger_home_last_seen_at'
+const CHALLENGES_LAST_SEEN_AT_KEY = 'challenger_challenges_last_seen_at'
+const MESSAGES_LAST_SEEN_ID_KEY = 'challenger_messages_last_seen_id'
 const FOLLOWING_KEY = 'challenger_following_user_ids'
 const LANGUAGE_KEY = 'challenger_language'
 const POST_TYPE_HOME = 'home'
 const POST_TYPE_CHALLENGE = 'challenge'
 const POST_EDIT_WINDOW_MS = 10 * 60 * 1000
+const MESSAGE_EDIT_WINDOW_MS = 5 * 60 * 1000
 const AUTO_STORY_MUSIC_LIBRARY = [
   {
     name: 'Story Pop Pulse',
@@ -392,6 +397,22 @@ export default function App() {
   const [currentUserId, setCurrentUserId] = useState(readSessionUserId)
   const [messages, setMessages] = useState(() => readStoredJson(MESSAGES_KEY, messagesData))
   const [notifications, setNotifications] = useState(() => readStoredJson(NOTIFICATIONS_KEY, []))
+  const [notificationsLastSeenAt, setNotificationsLastSeenAt] = useState(() => {
+    const rawValue = Number(localStorage.getItem(NOTIFICATIONS_LAST_SEEN_AT_KEY))
+    return Number.isFinite(rawValue) && rawValue > 0 ? rawValue : 0
+  })
+  const [homeLastSeenAt, setHomeLastSeenAt] = useState(() => {
+    const rawValue = Number(localStorage.getItem(HOME_LAST_SEEN_AT_KEY))
+    return Number.isFinite(rawValue) && rawValue > 0 ? rawValue : 0
+  })
+  const [challengesLastSeenAt, setChallengesLastSeenAt] = useState(() => {
+    const rawValue = Number(localStorage.getItem(CHALLENGES_LAST_SEEN_AT_KEY))
+    return Number.isFinite(rawValue) && rawValue > 0 ? rawValue : 0
+  })
+  const [messagesLastSeenId, setMessagesLastSeenId] = useState(() => {
+    const rawValue = Number(localStorage.getItem(MESSAGES_LAST_SEEN_ID_KEY))
+    return Number.isFinite(rawValue) && rawValue > 0 ? rawValue : 0
+  })
   const [followGraph, setFollowGraph] = useState(() => readStoredRecord(FOLLOWING_KEY, {}))
   const [selectedChatUserId, setSelectedChatUserId] = useState(2)
   const [theme, setTheme] = useState(() => localStorage.getItem(THEME_KEY) || 'light')
@@ -399,12 +420,14 @@ export default function App() {
     const storedLanguage = localStorage.getItem(LANGUAGE_KEY) || 'en'
     return isSupportedLanguage(storedLanguage) ? storedLanguage : 'en'
   })
+  const [challengeSearchQuery, setChallengeSearchQuery] = useState('')
   const [apiMode, setApiMode] = useState('probing')
   const [isRemoteReady, setIsRemoteReady] = useState(false)
   const [hasHydratedRemote, setHasHydratedRemote] = useState(false)
   const [initialLoadTimeout, setInitialLoadTimeout] = useState(false)
   const [viewingUserId, setViewingUserId] = useState(() => readSessionUserId() || null)
   const [openStoryComposerSignal, setOpenStoryComposerSignal] = useState(0)
+  const [openChatThreadSignal, setOpenChatThreadSignal] = useState(0)
 
   const currentUser = users.find((user) => user.id === currentUserId) || null
   const t = createTranslator(language)
@@ -413,6 +436,43 @@ export default function App() {
     : []
   const homePosts = posts.filter((post) => inferPostType(post) === POST_TYPE_HOME)
   const challengePosts = posts.filter((post) => inferPostType(post) === POST_TYPE_CHALLENGE)
+  const incomingMessages = currentUser
+    ? messages.filter((message) => message.toUserId === currentUser.id)
+    : []
+  const unreadMessageCount = incomingMessages.filter((message) => {
+    const messageId = Number(message?.id)
+    return Number.isFinite(messageId) && messageId > messagesLastSeenId
+  }).length
+  const unreadNotificationCount = notifications.filter((notification) => {
+    const createdAtMs = Date.parse(String(notification?.createdAt || ''))
+    return Number.isFinite(createdAtMs) && createdAtMs > notificationsLastSeenAt
+  }).length
+  const unreadHomeCount = currentUser
+    ? homePosts.filter((post) => {
+      if (post?.userId === currentUser.id) {
+        return false
+      }
+
+      const createdAtMs = Date.parse(String(post?.createdAt || ''))
+      return Number.isFinite(createdAtMs) && createdAtMs > homeLastSeenAt
+    }).length
+    : 0
+  const unreadChallengesCount = currentUser
+    ? challengePosts.filter((post) => {
+      if (post?.userId === currentUser.id) {
+        return false
+      }
+
+      const createdAtMs = Date.parse(String(post?.createdAt || ''))
+      return Number.isFinite(createdAtMs) && createdAtMs > challengesLastSeenAt
+    }).length
+    : 0
+  const navBadgeCounts = {
+    home: unreadHomeCount,
+    challenges: unreadChallengesCount,
+    notifications: unreadNotificationCount,
+    messages: unreadMessageCount,
+  }
 
   useEffect(() => {
     document.body.classList.toggle('theme-dark', theme === 'dark')
@@ -506,6 +566,76 @@ export default function App() {
   }, [notifications])
 
   useEffect(() => {
+    localStorage.setItem(NOTIFICATIONS_LAST_SEEN_AT_KEY, String(notificationsLastSeenAt))
+  }, [notificationsLastSeenAt])
+
+  useEffect(() => {
+    localStorage.setItem(HOME_LAST_SEEN_AT_KEY, String(homeLastSeenAt))
+  }, [homeLastSeenAt])
+
+  useEffect(() => {
+    localStorage.setItem(CHALLENGES_LAST_SEEN_AT_KEY, String(challengesLastSeenAt))
+  }, [challengesLastSeenAt])
+
+  useEffect(() => {
+    localStorage.setItem(MESSAGES_LAST_SEEN_ID_KEY, String(messagesLastSeenId))
+  }, [messagesLastSeenId])
+
+  useEffect(() => {
+    if (activeTab !== 'notifications') {
+      return
+    }
+
+    setNotificationsLastSeenAt((currentValue) => {
+      const nextValue = Date.now()
+      return nextValue > currentValue ? nextValue : currentValue
+    })
+  }, [activeTab, notifications])
+
+  useEffect(() => {
+    if (activeTab !== 'home') {
+      return
+    }
+
+    setHomeLastSeenAt((currentValue) => {
+      const nextValue = Date.now()
+      return nextValue > currentValue ? nextValue : currentValue
+    })
+  }, [activeTab, homePosts])
+
+  useEffect(() => {
+    if (activeTab !== 'challenges') {
+      return
+    }
+
+    setChallengesLastSeenAt((currentValue) => {
+      const nextValue = Date.now()
+      return nextValue > currentValue ? nextValue : currentValue
+    })
+  }, [activeTab, challengePosts])
+
+  useEffect(() => {
+    if (activeTab !== 'messages' || !currentUser) {
+      return
+    }
+
+    const maxIncomingMessageId = messages.reduce((currentMax, message) => {
+      if (message?.toUserId !== currentUser.id) {
+        return currentMax
+      }
+
+      const messageId = Number(message?.id)
+      if (!Number.isFinite(messageId)) {
+        return currentMax
+      }
+
+      return Math.max(currentMax, messageId)
+    }, 0)
+
+    setMessagesLastSeenId((currentValue) => Math.max(currentValue, maxIncomingMessageId))
+  }, [activeTab, currentUser, messages])
+
+  useEffect(() => {
     localStorage.setItem(FOLLOWING_KEY, JSON.stringify(followGraph))
   }, [followGraph])
 
@@ -552,6 +682,10 @@ export default function App() {
     }
 
     setLanguage(nextLanguage)
+  }
+
+  function handleSearchQueryChange(nextQuery) {
+    setChallengeSearchQuery(String(nextQuery || '').trim())
   }
 
   function updatePost(postId, updater) {
@@ -815,10 +949,19 @@ export default function App() {
 
   function handleOpenChat(userId) {
     setSelectedChatUserId(userId)
+    setOpenChatThreadSignal(Date.now())
     handleTabChange('messages')
   }
 
-  function handleSendMessage(toUserId, text) {
+  function handleSendMessage(toUserId, text, replyMeta = null) {
+    const safeReplyMeta = replyMeta && typeof replyMeta === 'object'
+      ? {
+          replyToMessageId: Number(replyMeta.replyToMessageId) || null,
+          replyToSenderName: String(replyMeta.replyToSenderName || '').trim(),
+          replyToText: String(replyMeta.replyToText || '').trim(),
+        }
+      : null
+
     setMessages((currentMessages) => [
       ...currentMessages,
       {
@@ -826,6 +969,10 @@ export default function App() {
         fromUserId: currentUser.id,
         toUserId,
         text,
+        replyToMessageId: safeReplyMeta?.replyToMessageId || null,
+        replyToSenderName: safeReplyMeta?.replyToSenderName || '',
+        replyToText: safeReplyMeta?.replyToText || '',
+        sentAt: new Date().toISOString(),
         timestamp: new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
       },
     ])
@@ -1003,7 +1150,23 @@ export default function App() {
   function handleEditMessage(messageId, nextText) {
     setMessages((currentMessages) =>
       currentMessages.map((message) =>
-        message.id === messageId ? { ...message, text: nextText } : message,
+        message.id === messageId
+          ? (() => {
+              if (message.fromUserId !== currentUser?.id) {
+                return message
+              }
+
+              const sentAtMs = Date.parse(String(message?.sentAt || ''))
+              const canEdit = Number.isFinite(sentAtMs)
+                && Date.now() - sentAtMs <= MESSAGE_EDIT_WINDOW_MS
+
+              if (!canEdit) {
+                return message
+              }
+
+              return { ...message, text: nextText }
+            })()
+          : message,
       ),
     )
   }
@@ -1012,6 +1175,24 @@ export default function App() {
     setMessages((currentMessages) =>
       currentMessages.filter((message) => message.id !== messageId),
     )
+  }
+
+  function handleForwardMessage(toUserId, text) {
+    if (!currentUser || !toUserId || !String(text || '').trim()) {
+      return
+    }
+
+    setMessages((currentMessages) => [
+      ...currentMessages,
+      {
+        id: currentMessages.reduce((maxId, message) => Math.max(maxId, message.id), 0) + 1,
+        fromUserId: currentUser.id,
+        toUserId,
+        text: String(text).trim(),
+        sentAt: new Date().toISOString(),
+        timestamp: new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
+      },
+    ])
   }
 
   function handleUpdateCurrentUserCoverPhoto(coverPhotoUrl) {
@@ -1096,8 +1277,10 @@ export default function App() {
         onTabChange={handleTabChange}
         users={users}
         posts={posts}
+        badgeCounts={navBadgeCounts}
         onNavigateToProfile={handleNavigateToUserProfile}
         onNavigateToMenu={handleNavigateToMenu}
+        onSearchQueryChange={handleSearchQueryChange}
         t={t}
       />
 
@@ -1108,6 +1291,7 @@ export default function App() {
             users={users}
             posts={homePosts}
             challengePosts={challengePosts}
+            followGraph={followGraph}
             stories={stories}
             likedPosts={likedPosts}
             votedPosts={votedPosts}
@@ -1121,9 +1305,11 @@ export default function App() {
             onDeletePost={handleDeletePost}
             onEditStory={handleEditStory}
             onDeleteStory={handleDeleteStory}
+            onSendStoryMessage={handleSendMessage}
             onOpenChat={handleOpenChat}
             onTabChange={handleTabChange}
             onNavigateToProfile={handleNavigateToUserProfile}
+            onToggleFollowUser={handleToggleFollowUser}
             openStoryComposerSignal={openStoryComposerSignal}
             onStoryReaction={handleStoryReaction}
             t={t}
@@ -1135,6 +1321,7 @@ export default function App() {
             currentUser={currentUser}
             users={users}
             posts={challengePosts}
+            searchQuery={challengeSearchQuery}
             likedPosts={likedPosts}
             votedPosts={votedPosts}
             onLike={handleLike}
@@ -1161,7 +1348,15 @@ export default function App() {
         )}
 
         {activeTab === 'notifications' && (
-          <NotificationsPage currentUser={currentUser} users={users} posts={posts} messages={messages} notifications={notifications} t={t} />
+          <NotificationsPage
+            currentUser={currentUser}
+            users={users}
+            posts={posts}
+            messages={messages}
+            notifications={notifications}
+            onOpenChat={handleOpenChat}
+            t={t}
+          />
         )}
         {activeTab === 'messages' && (
           <MessagesPage
@@ -1169,10 +1364,12 @@ export default function App() {
             users={users}
             messages={messages}
             selectedChatUserId={selectedChatUserId}
+            openThreadSignal={openChatThreadSignal}
             onSelectChat={setSelectedChatUserId}
             onSendMessage={handleSendMessage}
             onEditMessage={handleEditMessage}
             onDeleteMessage={handleDeleteMessage}
+            onForwardMessage={handleForwardMessage}
             onNavigateToProfile={handleNavigateToUserProfile}
             t={t}
           />
@@ -1218,7 +1415,7 @@ export default function App() {
         )}
       </main>
 
-      <BottomNav activeTab={activeTab} onTabChange={handleTabChange} t={t} />
+      <BottomNav activeTab={activeTab} onTabChange={handleTabChange} badgeCounts={navBadgeCounts} t={t} />
     </div>
   )
 }

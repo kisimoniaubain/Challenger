@@ -55,6 +55,7 @@ export default function HomePage({
   users,
   posts,
   challengePosts,
+  followGraph,
   stories,
   likedPosts,
   votedPosts,
@@ -68,9 +69,11 @@ export default function HomePage({
   onDeletePost,
   onEditStory,
   onDeleteStory,
+  onSendStoryMessage,
   onOpenChat,
   onTabChange,
   onNavigateToProfile,
+  onToggleFollowUser,
   openStoryComposerSignal,
   onStoryReaction,
   t,
@@ -91,8 +94,34 @@ export default function HomePage({
   const mediaPreviewBlobUrlsRef = useRef({})
   const musicPreviewBlobUrlRef = useRef(null)
   const composerMusicInputRef = useRef(null)
+  const quickComposerMediaInputRef = useRef(null)
 
-  const topChallengers = [...users].sort((a, b) => b.totalVotes - a.totalVotes).slice(0, 4)
+  const followingIds = Array.isArray(followGraph?.[currentUser.id]) ? followGraph[currentUser.id] : []
+  const followableUsers = (users || []).filter((user) => user.id !== currentUser.id)
+  const allPosts = [...(posts || []), ...(challengePosts || [])]
+  const scoredPeople = followableUsers
+    .map((user) => {
+      const candidateFollowing = Array.isArray(followGraph?.[user.id]) ? followGraph[user.id] : []
+      const mutualCount = candidateFollowing.filter((id) => followingIds.includes(id)).length
+      const followersCount = followableUsers.filter(
+        (otherUser) => Array.isArray(followGraph?.[otherUser.id]) && followGraph[otherUser.id].includes(user.id),
+      ).length
+      const authoredCount = allPosts.filter((post) => post.userId === user.id).length
+      const alreadyFollowingPenalty = followingIds.includes(user.id) ? 200 : 0
+      const score = (mutualCount * 100) + (followersCount * 12) + (authoredCount * 5) + Number(user.totalVotes || 0) - alreadyFollowingPenalty
+
+      return {
+        user,
+        mutualCount,
+        followersCount,
+        authoredCount,
+        score,
+      }
+    })
+    .sort((left, right) => right.score - left.score)
+
+  const topPeopleToFollow = scoredPeople.slice(0, 4)
+  const morePeopleToFollow = scoredPeople.slice(4, 8)
 
   function clearMediaPreviewBlobUrls() {
     Object.values(mediaPreviewBlobUrlsRef.current).forEach((url) => {
@@ -133,6 +162,7 @@ export default function HomePage({
   }, [openStoryComposerSignal])
 
   function openComposer(mode) {
+    resetComposerFields()
     setComposerMode(mode)
     setEditingTarget(null)
     setUploadError('')
@@ -225,8 +255,7 @@ export default function HomePage({
     setUploadError('')
   }
 
-  function handleMediaChange(event) {
-    const files = event.target.files
+  function addSelectedMediaFiles(files) {
     if (!files || files.length === 0) {
       return
     }
@@ -290,6 +319,29 @@ export default function HomePage({
 
     setMediaItems((current) => [...current, ...newItems])
     setUploadError('')
+  }
+
+  function handleMediaChange(event) {
+    addSelectedMediaFiles(event.target.files)
+    event.target.value = ''
+  }
+
+  function handleQuickComposerMediaClick() {
+    openComposer('post')
+    setTimeout(() => {
+      quickComposerMediaInputRef.current?.click()
+    }, 0)
+  }
+
+  function handleQuickComposerMediaSelection(event) {
+    const files = event.target.files
+    if (!files || files.length === 0) {
+      return
+    }
+
+    openComposer('post')
+    addSelectedMediaFiles(files)
+    event.target.value = ''
   }
 
   function removeMediaItem(itemId) {
@@ -506,8 +558,25 @@ export default function HomePage({
             <img src={getAvatar(currentUser)} alt={currentUser.name} className="fb-composer-avatar" />
           </button>
           <button type="button" className="fb-composer-pill" onClick={() => openComposer('post')}>
-            What's your challenge today, {currentUser.name.split(' ')[0]}?
+            What's on your mind today?
           </button>
+          <button
+            type="button"
+            className="fb-composer-media-btn"
+            onClick={handleQuickComposerMediaClick}
+            title="Post image or video"
+            aria-label="Post image or video"
+          >
+            <i className="fa-solid fa-image" aria-hidden="true" />
+          </button>
+          <input
+            ref={quickComposerMediaInputRef}
+            type="file"
+            accept="image/*,video/*"
+            multiple
+            className="composer-quick-media-input"
+            onChange={handleQuickComposerMediaSelection}
+          />
         </div>
 
         {/* Stories */}
@@ -522,6 +591,7 @@ export default function HomePage({
           onCreateStoryFromCamera={handleCreateStoryFromCamera}
           onEditStory={openStoryEditor}
           onDeleteStory={onDeleteStory}
+          onSendStoryMessage={onSendStoryMessage}
           onNavigateToProfile={onNavigateToProfile}
           onStoryReaction={onStoryReaction}
         />
@@ -554,41 +624,65 @@ export default function HomePage({
 
       {/* ── Right sidebar ── */}
       <aside className="fb-right" aria-label="Right sidebar">
-        {/* Top Challengers */}
+        {/* People to follow */}
         <div className="fb-widget">
-          <h4 className="fb-widget-title">{tx('Top Challengers')}</h4>
-          {topChallengers.map((user, i) => (
-            <button key={user.id} type="button" className="fb-contact-row" onClick={() => onNavigateToProfile?.(user.id)}>
-              <span className="fb-contact-rank">#{i + 1}</span>
-              <img src={getAvatar(user)} alt={user.name} className="fb-contact-avatar" />
-              <div className="fb-contact-info">
-                <strong>{user.name}</strong>
-                <p>{user.totalVotes} votes</p>
-              </div>
-            </button>
-          ))}
-        </div>
-
-        {/* Active challenges */}
-        <div className="fb-widget">
-          <h4 className="fb-widget-title">{tx('Active Challenges')}</h4>
-          {(challengePosts || []).map((post) => {
-            const author = users.find((u) => u.id === post.userId)
+          <h4 className="fb-widget-title">Suggested for You</h4>
+          {topPeopleToFollow.map((person, i) => {
+            const user = person.user
+            const isFollowing = followingIds.includes(user.id)
             return (
-              <button
-                key={post.id}
-                type="button"
-                className="fb-contact-row"
-                onClick={() => author && onNavigateToProfile?.(author.id)}
-              >
-                <img src={getAvatar(author)} alt={author?.name} className="fb-contact-avatar" />
-                <div className="fb-contact-info">
-                  <strong>{post.challengeTitle}</strong>
-                  <p>{post.challengeVotes} votes</p>
-                </div>
-              </button>
+              <article key={user.id} className="fb-contact-row fb-follow-row">
+                <button type="button" className="fb-contact-main-btn" onClick={() => onNavigateToProfile?.(user.id)}>
+                  <span className="fb-contact-rank">#{i + 1}</span>
+                  <img src={getAvatar(user)} alt={user.name} className="fb-contact-avatar" />
+                  <div className="fb-contact-info">
+                    <strong>{user.name}</strong>
+                    <p>{person.mutualCount} mutual · {person.followersCount} followers</p>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  className={`people-follow-btn ${isFollowing ? 'is-following' : ''}`}
+                  onClick={() => onToggleFollowUser?.(user.id)}
+                >
+                  {isFollowing ? tx('Following') : tx('Follow')}
+                </button>
+              </article>
             )
           })}
+        </div>
+
+        {/* More people */}
+        <div className="fb-widget">
+          <h4 className="fb-widget-title">People You May Know</h4>
+          {morePeopleToFollow.length > 0 ? morePeopleToFollow.map((person) => {
+            const user = person.user
+            const isFollowing = followingIds.includes(user.id)
+            return (
+              <article key={user.id} className="fb-contact-row fb-follow-row">
+                <button
+                  type="button"
+                  className="fb-contact-main-btn"
+                  onClick={() => onNavigateToProfile?.(user.id)}
+                >
+                  <img src={getAvatar(user)} alt={user?.name} className="fb-contact-avatar" />
+                  <div className="fb-contact-info">
+                    <strong>{user.name}</strong>
+                    <p>{person.authoredCount} posts · {person.followersCount} followers</p>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  className={`people-follow-btn ${isFollowing ? 'is-following' : ''}`}
+                  onClick={() => onToggleFollowUser?.(user.id)}
+                >
+                  {isFollowing ? tx('Following') : tx('Follow')}
+                </button>
+              </article>
+            )
+          }) : (
+            <p className="top-search-empty">No more people to show.</p>
+          )}
         </div>
       </aside>
 
@@ -617,7 +711,7 @@ export default function HomePage({
                     <textarea
                       value={text}
                       onChange={(event) => setText(event.target.value)}
-                      placeholder="Write something to post"
+                      placeholder="Write what's on your mind today"
                       rows={5}
                     />
                   </label>

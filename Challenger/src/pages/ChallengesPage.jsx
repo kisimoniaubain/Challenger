@@ -3,10 +3,32 @@ import { uploadMediaFile } from '../services/api'
 import PostCard from '../components/PostCard'
 import { getAvatar } from '../utils/avatar'
 
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function renderHighlightedText(text, query) {
+  const safeText = String(text || '')
+  const normalizedQuery = String(query || '').trim()
+  if (!normalizedQuery) {
+    return safeText
+  }
+
+  const pattern = new RegExp(`(${escapeRegExp(normalizedQuery)})`, 'ig')
+  const parts = safeText.split(pattern)
+
+  return parts.map((part, index) => (
+    part.toLowerCase() === normalizedQuery.toLowerCase()
+      ? <mark key={`${part}-${index}`} className="challenge-search-mark">{part}</mark>
+      : <span key={`${part}-${index}`}>{part}</span>
+  ))
+}
+
 export default function ChallengesPage({
   currentUser,
   posts,
   users,
+  searchQuery,
   likedPosts,
   votedPosts,
   onLike,
@@ -28,10 +50,22 @@ export default function ChallengesPage({
   const [mediaUrl, setMediaUrl] = useState(null)
   const [clipsView, setClipsView] = useState('all')
   const previewBlobUrlRef = useRef(null)
+  const normalizedSearch = String(searchQuery || '').trim().toLowerCase()
 
   const visiblePosts = useMemo(() => {
+    const filteredPosts = normalizedSearch
+      ? posts.filter((post) => {
+        const author = users.find((user) => user.id === post.userId)
+        return (
+          String(post.challengeTitle || '').toLowerCase().includes(normalizedSearch)
+          || String(post.text || '').toLowerCase().includes(normalizedSearch)
+          || String(author?.name || '').toLowerCase().includes(normalizedSearch)
+        )
+      })
+      : posts
+
     if (clipsView === 'top') {
-      return [...posts]
+      return [...filteredPosts]
         .sort((left, right) => {
           if (right.challengeVotes !== left.challengeVotes) {
             return right.challengeVotes - left.challengeVotes
@@ -42,8 +76,8 @@ export default function ChallengesPage({
         .slice(0, 3)
     }
 
-    return posts
-  }, [clipsView, posts])
+    return filteredPosts
+  }, [clipsView, normalizedSearch, posts, users])
 
   function clearPreviewBlobUrl() {
     if (previewBlobUrlRef.current) {
@@ -169,6 +203,9 @@ export default function ChallengesPage({
         </button>
       </div>
       <p className="subtitle">Vote for your favorite clip entries.</p>
+      {normalizedSearch ? (
+        <p className="subtitle">Showing search results for "{searchQuery}"</p>
+      ) : null}
 
       {/* View Filter Section */}
       <div className="clips-view-controls">
@@ -272,23 +309,30 @@ export default function ChallengesPage({
           const hasVoted = votedPosts.includes(post.id)
           const isOwner = post.userId === currentUser.id
           return (
-            <PostCard
-              key={post.id}
-              post={post}
-              author={author}
-              currentUser={currentUser}
-              isOwner={isOwner}
-              hasLiked={likedPosts.includes(post.id)}
-              hasVoted={hasVoted}
-              onLike={() => onLike(post.id)}
-              onComment={() => onComment(post.id)}
-              onShare={() => onShare(post.id)}
-              onVote={() => onVote(post.id)}
-              onEdit={() => handleEditClip(post)}
-              onDelete={() => onDeletePost?.(post.id)}
-              onNavigateToProfile={onNavigateToProfile}
-              enableInlineVideoPlayback
-            />
+            <article key={post.id} className="challenge-search-result-card">
+              {normalizedSearch ? (
+                <p className="challenge-search-match" aria-live="polite">
+                  <strong>Match:</strong>{' '}
+                  {renderHighlightedText(post.challengeTitle || post.text || author?.name || 'Clip', searchQuery)}
+                </p>
+              ) : null}
+              <PostCard
+                post={post}
+                author={author}
+                currentUser={currentUser}
+                isOwner={isOwner}
+                hasLiked={likedPosts.includes(post.id)}
+                hasVoted={hasVoted}
+                onLike={() => onLike(post.id)}
+                onComment={() => onComment(post.id)}
+                onShare={() => onShare(post.id)}
+                onVote={() => onVote(post.id)}
+                onEdit={() => handleEditClip(post)}
+                onDelete={() => onDeletePost?.(post.id)}
+                onNavigateToProfile={onNavigateToProfile}
+                enableInlineVideoPlayback
+              />
+            </article>
           )
         })}
       </div>

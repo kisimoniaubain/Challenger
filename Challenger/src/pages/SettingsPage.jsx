@@ -1,10 +1,35 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 export default function SettingsPage({ currentUser, onLogout, onDeleteAccount, t }) {
   const tx = t || ((value) => value)
   const [editMode, setEditMode] = useState(false)
   const [name, setName] = useState(currentUser.name)
   const [email, setEmail] = useState(currentUser.email)
+  const [dataMode, setDataMode] = useState('checking')
+
+  useEffect(() => {
+    let cancelled = false
+
+    fetch('/api/health')
+      .then((response) => response.json())
+      .then((payload) => {
+        if (cancelled) {
+          return
+        }
+
+        const nextMode = String(payload?.dataMode || 'unknown').toLowerCase()
+        setDataMode(nextMode)
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setDataMode('offline')
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const handleSaveProfile = () => {
     // In a real app, this would update the user profile
@@ -17,6 +42,11 @@ export default function SettingsPage({ currentUser, onLogout, onDeleteAccount, t
       <div className="settings-container">
         <h2>{tx('Settings')}</h2>
         <p className="subtitle">{tx('Manage your account and preferences')}</p>
+        <p className="settings-data-mode">
+          <span className={`settings-mode-badge mode-${dataMode}`}>
+            Data mode: {dataMode}
+          </span>
+        </p>
 
         {/* Account Section */}
         <div className="settings-section">
