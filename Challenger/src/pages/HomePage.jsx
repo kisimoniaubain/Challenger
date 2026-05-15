@@ -531,7 +531,7 @@ export default function HomePage({
 
         <p className="fb-side-footer">
           <span className="brand-inline">
-            <span className="brand-mark" aria-hidden="true">C</span>
+            <img src="/avatars/challenger.png" alt="Challenger logo" className="brand-logo-img" />
             <span className="brand-word">Challenger</span>
           </span>
           {' '}

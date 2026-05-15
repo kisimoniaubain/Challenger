@@ -117,6 +117,14 @@ select {
 .brand-word {
   font-weight: 800;
   font-size: 0.98rem;
+  color: #16a34a;
+}
+
+.brand-logo-img {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+  display: block;
 }
 
 .brand-mark {
@@ -152,6 +160,11 @@ select {
   transition: transform 140ms ease;
 }
 
+.brand-c-badge .brand-logo-img {
+  width: 44px;
+  height: 44px;
+}
+
 .brand-c-badge:hover {
   transform: scale(1.08);
 }
@@ -159,14 +172,14 @@ select {
 .brand-word-header {
   font-size: 1.35rem;
   font-weight: 800;
-  color: var(--text);
+  color: #16a34a;
   white-space: nowrap;
   line-height: 1;
 }
 
 .brand-inline {
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
   gap: 4px;
 }
 

@@ -108,7 +108,7 @@ export default function TopNav({
             aria-label="Go to home"
             onClick={() => onTabChange('home')}
           >
-            C
+            <img src="/avatars/challenger.png" alt="Challenger logo" className="brand-logo-img" />
           </button>
           <span className="brand-word brand-word-header">Challenger</span>
         </div>

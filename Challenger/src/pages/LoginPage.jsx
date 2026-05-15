@@ -395,16 +395,16 @@ export default function LoginPage({ onLogin, onRegister, onGoogleLogin, onForgot
   }
 
   return (
-    <section className="login-page" aria-label="Login to C Challenger">
+    <section className="login-page" aria-label="Login to Challenger">
       <div className="login-card">
         <h1 className="brand-heading brand-heading-inline">
-          <span className="brand-mark" aria-hidden="true">C</span>
+          <img src="/avatars/challenger.png" alt="Challenger logo" className="brand-logo-img" />
           <span className="brand-word">Challenger</span>
         </h1>
         <p className="login-subtitle">
           {authMode === 'login'
             ? 'Log in to continue.'
-            : 'Create your account to start using C Challenger.'}
+            : 'Create your account to start using Challenger.'}
         </p>
 
         <form className="login-form" onSubmit={handleSubmit}>

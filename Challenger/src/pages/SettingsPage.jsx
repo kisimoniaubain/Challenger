@@ -126,7 +126,7 @@ export default function SettingsPage({ currentUser, onLogout, onDeleteAccount, t
           <div className="settings-info">
             <p>
               <strong className="brand-inline">
-                <span className="brand-mark" aria-hidden="true">C</span>
+                <img src="/avatars/challenger.png" alt="Challenger logo" className="brand-logo-img" />
                 <span className="brand-word">Challenger</span>
               </strong>{' '}
               v1.0

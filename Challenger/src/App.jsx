@@ -1248,7 +1248,7 @@ export default function App() {
       <section className="login-page" aria-label="Preparing your account data">
         <div className="login-card">
           <h1 className="brand-heading brand-heading-inline">
-            <span className="brand-mark" aria-hidden="true">C</span>
+            <img src="/avatars/challenger.png" alt="Challenger logo" className="brand-logo-img" />
             <span className="brand-word">Challenger</span>
           </h1>
           <p className="login-subtitle">Checking saved accounts...</p>
