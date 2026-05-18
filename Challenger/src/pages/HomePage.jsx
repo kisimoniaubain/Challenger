@@ -542,13 +542,7 @@ export default function HomePage({
       {/* ── Center feed ── */}
       <main className="fb-feed">
         {/* Composer */}
-        <div className="fb-composer" style={{
-          backgroundImage: `url(${currentUser.coverPhoto || getAvatar(currentUser)})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundAttachment: 'fixed',
-        }}>
-          <div className="fb-composer-overlay" />
+        <div className="fb-composer">
           <button
             type="button"
             className="fb-composer-avatar-btn"

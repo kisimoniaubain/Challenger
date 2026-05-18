@@ -3,6 +3,8 @@ import { getAvatar } from '../utils/avatar'
 
 const STORY_DURATION_MS = 5000
 const STORY_EXPIRY_MS = 24 * 60 * 60 * 1000
+const STORY_CARD_WIDTH_PX = 108
+const STORY_CARD_GAP_PX = 8
 const STORY_REACTIONS = [
   { key: 'heart',   icon: 'fa-solid fa-heart',             color: '#e0245e' },
   { key: 'laugh',   icon: 'fa-solid fa-face-laugh-squint', color: '#f7b731' },
@@ -71,6 +73,9 @@ export default function StoryStrip({
   const [storyReactions, setStoryReactions] = useState({})
   const [elapsed, setElapsed] = useState(0)
   const [relativeStoryTime, setRelativeStoryTime] = useState('Just now')
+  const [visibleStoryStart, setVisibleStoryStart] = useState(0)
+  const [visibleCardCapacity, setVisibleCardCapacity] = useState(6)
+  const storyBarRef = useRef(null)
   const cameraCaptureInputRef = useRef(null)
   const createCardCameraInputRef = useRef(null)
   const storyMusicAudioRef = useRef(null)
@@ -124,11 +129,74 @@ export default function StoryStrip({
         const rightTime = Date.parse(rightGroup.latestStory?.createdAt || '') || 0
         return rightTime - leftTime
       })
-      .slice(0, 12)
+      .slice(0, 24)
   }, [activeStories, currentUserId, users])
+
+  const hasCreateCard = Array.isArray(users) && users.length > 0
+  const storyCarouselItems = useMemo(() => {
+    const storyItems = userStoryGroups.map((group, groupIndex) => ({
+      kind: 'story',
+      group,
+      groupIndex,
+    }))
+
+    if (!hasCreateCard) {
+      return storyItems
+    }
+
+    return [{ kind: 'create' }, ...storyItems]
+  }, [userStoryGroups, hasCreateCard])
+
+  const visibleItemWindow = hasCreateCard
+    ? Math.max(4, visibleCardCapacity)
+    : Math.max(3, visibleCardCapacity)
+
+  const visibleStoryWindow = hasCreateCard
+    ? Math.max(3, visibleItemWindow - 1)
+    : visibleItemWindow
+
+  const visibleStoryItems = useMemo(() => {
+    return storyCarouselItems.slice(visibleStoryStart, visibleStoryStart + visibleItemWindow)
+  }, [storyCarouselItems, visibleStoryStart, visibleItemWindow])
+
+  useEffect(() => {
+    const containerElement = storyBarRef.current
+    if (!containerElement) {
+      return undefined
+    }
+
+    const updateVisibleCapacity = () => {
+      const containerWidth = containerElement.clientWidth
+      if (!containerWidth) {
+        return
+      }
+
+      const capacity = Math.floor((containerWidth + STORY_CARD_GAP_PX) / (STORY_CARD_WIDTH_PX + STORY_CARD_GAP_PX))
+      setVisibleCardCapacity(Math.max(2, capacity))
+    }
+
+    updateVisibleCapacity()
+
+    const resizeObserver = new ResizeObserver(() => {
+      updateVisibleCapacity()
+    })
+
+    resizeObserver.observe(containerElement)
+    return () => resizeObserver.disconnect()
+  }, [])
+
+  useEffect(() => {
+    setVisibleStoryStart((currentStart) => {
+      const maxStart = Math.max(0, storyCarouselItems.length - visibleItemWindow)
+      return Math.min(currentStart, maxStart)
+    })
+  }, [storyCarouselItems.length, visibleItemWindow])
 
   const activeStory = activeStoryIndex !== null ? activeUserStories[activeStoryIndex] : null
   const activeAuthor = activeStory ? users.find((user) => user.id === activeStory.userId) : null
+
+  const canScrollStoriesLeft = visibleStoryStart > 0
+  const canScrollStoriesRight = visibleStoryStart + visibleItemWindow < storyCarouselItems.length
 
   const hasPreviousStory = activeGroupIndex !== null && (
     activeStoryIndex > 0 || activeGroupIndex > 0
@@ -142,6 +210,15 @@ export default function StoryStrip({
     setActiveStoryIndex(null)
     setActiveUserStories([])
     setMessageDraft('')
+  }
+
+  function shiftStoryWindow(direction) {
+    setVisibleStoryStart((currentStart) => {
+      const maxStart = Math.max(0, storyCarouselItems.length - visibleItemWindow)
+      const stepSize = Math.max(1, visibleItemWindow - 1)
+      const nextStart = currentStart + (direction * stepSize)
+      return Math.min(Math.max(0, nextStart), maxStart)
+    })
   }
 
   useEffect(() => {
@@ -322,131 +399,143 @@ export default function StoryStrip({
   return (
     <>
       <section className="stories-strip" aria-label="Active challenges">
-      <div className="stories-row">
-        {/* Create challenge card with user profile background */}
-        {users && users.length > 0 && (
-          <div
-            className="story-card story-card-create"
-            role="button"
-            tabIndex={0}
-            onClick={onCreateStory}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault()
-                onCreateStory()
-              }
-            }}
+        <div className="stories-row-wrap" ref={storyBarRef}>
+          <button
+            type="button"
+            className="stories-scroll-btn stories-scroll-btn-left"
+            onClick={() => shiftStoryWindow(-1)}
+            aria-label="Scroll stories left"
+            disabled={!canScrollStoriesLeft}
           >
-            <div className="story-card-bg story-card-create-bg">
-              <img
-                src={getAvatar(users.find(u => u.id === currentUserId))}
-                alt="Your profile"
-                className="story-profile-cover"
-              />
-              <button
-                type="button"
-                className="story-create-camera-btn"
-                aria-label="Capture story photo"
-                onClick={(event) => {
-                  event.stopPropagation()
-                  createCardCameraInputRef.current?.click()
-                }}
-              >
-                <i className="fa-solid fa-camera" aria-hidden="true" />
-              </button>
-              <input
-                ref={createCardCameraInputRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                className="story-camera-capture-input"
-                onChange={(event) => {
-                  const capturedFile = event.target.files?.[0]
-                  if (capturedFile && onCreateStoryFromCamera) {
-                    onCreateStoryFromCamera(capturedFile)
-                  }
-                  if (event.target) {
-                    event.target.value = ''
-                  }
-                }}
-              />
-              <div className="story-create-overlay">
-                <div className="story-create-content">
-                  <i className="fa-solid fa-plus story-add-icon" aria-hidden="true" />
-                  <p className="story-create-text">Create a story</p>
-                </div>
-              </div>
-            </div>
-            <p className="story-label">Your Story</p>
-          </div>
-        )}
+            <i className="fa-solid fa-chevron-left" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="stories-scroll-btn stories-scroll-btn-right"
+            onClick={() => shiftStoryWindow(1)}
+            aria-label="Scroll stories right"
+            disabled={!canScrollStoriesRight}
+          >
+            <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+          </button>
 
-        {userStoryGroups.map((group, groupIndex) => {
-          return (
-            <article
-              key={group.userId}
-              className="story-card"
-              onClick={() => openStory(group.stories, groupIndex)}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                  event.preventDefault()
-                  openStory(group.stories, groupIndex)
-                }
-              }}
-            >
-              <div className="story-card-bg">
-                <div
-                  className="story-card-bg"
-                  style={{
-                    backgroundImage: `url(${getAvatar(group.author)})`,
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
-                    filter: 'blur(8px)',
-                  }}
-                  aria-hidden="true"
-                />
-                {group.latestStory.mediaType === 'video' ? (
-                  <video className="story-card-video" src={group.latestStory.mediaUrl} muted playsInline />
-                ) : (
+          <div className="stories-row">
+            {visibleStoryItems.map((item) => {
+              if (item.kind === 'create') {
+                return (
                   <div
-                    className="story-card-image"
-                    style={
-                      group.latestStory.mediaUrl
-                        ? { backgroundImage: `url(${group.latestStory.mediaUrl})` }
-                        : { background: 'transparent' }
-                    }
-                  />
-                )}
-                <div
-                  className="story-card-header"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onNavigateToProfile && onNavigateToProfile(group.author?.id)
-                  }}
-                  role="button"
-                  tabIndex={-1}
-                >
-                  <img
-                    src={getAvatar(group.author)}
-                    alt={group.author?.name}
-                    className="story-card-header-avatar"
-                  />
-                  <div className="story-card-header-info">
-                    <p className="story-card-header-name">{group.author?.name}</p>
-                    <p className="story-card-header-small">{formatRelativeStoryTime(group.latestStory.createdAt)}</p>
+                    key="create-story"
+                    className="story-card story-card-create"
+                    role="button"
+                    tabIndex={0}
+                    onClick={onCreateStory}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault()
+                        onCreateStory()
+                      }
+                    }}
+                  >
+                    <div className="story-card-bg story-card-create-bg">
+                      <img
+                        src={getAvatar(users.find((user) => user.id === currentUserId))}
+                        alt="Your profile"
+                        className="story-profile-cover"
+                      />
+                      <button
+                        type="button"
+                        className="story-create-camera-btn"
+                        aria-label="Capture story photo"
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          createCardCameraInputRef.current?.click()
+                        }}
+                      >
+                        <i className="fa-solid fa-camera" aria-hidden="true" />
+                      </button>
+                      <input
+                        ref={createCardCameraInputRef}
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        className="story-camera-capture-input"
+                        onChange={(event) => {
+                          const capturedFile = event.target.files?.[0]
+                          if (capturedFile && onCreateStoryFromCamera) {
+                            onCreateStoryFromCamera(capturedFile)
+                          }
+                          if (event.target) {
+                            event.target.value = ''
+                          }
+                        }}
+                      />
+                      <div className="story-create-overlay">
+                        <div className="story-create-content">
+                          <i className="fa-solid fa-plus story-add-icon" aria-hidden="true" />
+                          <p className="story-create-text">Create a story</p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                </div>
-                {group.stories.length > 1 ? (
-                  <span className="story-count-badge">+{group.stories.length - 1}</span>
-                ) : null}
-              </div>
-              <p className="story-label">{group.author?.name}</p>
-            </article>
-          )
-        })}
-      </div>
+                )
+              }
+
+              const group = item.group
+              const absoluteGroupIndex = item.groupIndex
+              const hasImagePreview = group.latestStory.mediaType === 'image' && group.latestStory.mediaUrl
+              const hasVideoPreview = group.latestStory.mediaType === 'video' && group.latestStory.mediaUrl
+
+              return (
+                <article
+                  key={group.userId}
+                  className="story-card"
+                  onClick={() => openStory(group.stories, absoluteGroupIndex)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault()
+                      openStory(group.stories, absoluteGroupIndex)
+                    }
+                  }}
+                >
+                  <div className="story-card-bg">
+                    {hasImagePreview ? (
+                      <img
+                        src={group.latestStory.mediaUrl}
+                        alt={group.author?.name || 'Story preview'}
+                        className="story-card-image"
+                        loading="lazy"
+                        decoding="async"
+                      />
+                    ) : hasVideoPreview ? (
+                      <div className="story-card-video story-card-video-preview" aria-hidden="true">
+                        <img
+                          src={getAvatar(group.author)}
+                          alt=""
+                          className="story-card-video-avatar"
+                          aria-hidden="true"
+                          loading="lazy"
+                          decoding="async"
+                        />
+                        <i className="fa-solid fa-circle-play story-card-video-icon" aria-hidden="true" />
+                      </div>
+                    ) : (
+                      <div
+                        className="story-card-image"
+                        style={{ backgroundImage: `url(${getAvatar(group.author)})` }}
+                      />
+                    )}
+                    {group.stories.length > 1 ? (
+                      <span className="story-count-badge">+{group.stories.length - 1}</span>
+                    ) : null}
+                    <p className="story-label">{group.author?.name || 'Story'}</p>
+                  </div>
+                </article>
+              )
+            })}
+          </div>
+        </div>
       </section>
 
       {activeStory && (
@@ -504,6 +593,7 @@ export default function StoryStrip({
               <div className="story-owner-actions">
                 <button
                   type="button"
+                  className="story-owner-action-btn story-owner-action-add"
                   aria-label="Add another story"
                   title="Add another story"
                   onClick={() => onCreateStory?.()}
@@ -512,11 +602,33 @@ export default function StoryStrip({
                 </button>
                 <button
                   type="button"
+                  className="story-owner-action-btn story-owner-action-camera"
                   aria-label="Capture story photo"
                   title="Capture story photo"
                   onClick={() => cameraCaptureInputRef.current?.click()}
                 >
                   <i className="fa-solid fa-camera" aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  className="story-owner-action-btn story-owner-action-edit"
+                  aria-label="Edit this story"
+                  title="Edit this story"
+                  onClick={() => onEditStory?.(activeStory)}
+                >
+                  <i className="fa-solid fa-pen" aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  className="story-owner-action-btn story-owner-action-delete"
+                  aria-label="Delete this story"
+                  title="Delete this story"
+                  onClick={() => {
+                    onDeleteStory?.(activeStory.id)
+                    closeViewer()
+                  }}
+                >
+                  <i className="fa-solid fa-trash" aria-hidden="true" />
                 </button>
 
                 <input

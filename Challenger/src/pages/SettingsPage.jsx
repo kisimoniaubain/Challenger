@@ -132,7 +132,7 @@ export default function SettingsPage({ currentUser, onLogout, onDeleteAccount, t
               v1.0
             </p>
             <p className="option-desc">
-              A Facebook-like social platform for music challenges and voting.
+              Social platform for talent challenges and voting.
             </p>
           </div>
         </div>

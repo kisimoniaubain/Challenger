@@ -14,6 +14,20 @@ function parseHashParams(hashValue) {
   return new URLSearchParams(hash)
 }
 
+function getGoogleRedirectUri() {
+  const configured = String(import.meta.env.VITE_GOOGLE_REDIRECT_URI || '').trim()
+  if (configured) {
+    return configured.replace(/\/$/, '')
+  }
+
+  if (typeof window === 'undefined') {
+    return ''
+  }
+
+  // Use origin only (no pathname) to avoid redirect URI mismatches in OAuth config.
+  return window.location.origin.replace(/\/$/, '')
+}
+
 export default function LoginPage({ onLogin, onRegister, onGoogleLogin, onForgotPassword }) {
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
@@ -51,8 +65,7 @@ export default function LoginPage({ onLogin, onRegister, onGoogleLogin, onForgot
     }
 
     const nonce = createNonce()
-    const origin = window.location.origin
-    const redirectUri = `${origin}${window.location.pathname}`
+    const redirectUri = getGoogleRedirectUri()
     const googleUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth')
 
     window.localStorage.setItem(GOOGLE_REDIRECT_NONCE_KEY, nonce)
@@ -61,6 +74,7 @@ export default function LoginPage({ onLogin, onRegister, onGoogleLogin, onForgot
     googleUrl.searchParams.set('redirect_uri', redirectUri)
     googleUrl.searchParams.set('response_type', 'id_token')
     googleUrl.searchParams.set('scope', 'openid email profile')
+    googleUrl.searchParams.set('response_mode', 'fragment')
     googleUrl.searchParams.set('state', nonce)
     googleUrl.searchParams.set('nonce', nonce)
     googleUrl.searchParams.set('prompt', 'select_account')
@@ -73,6 +87,19 @@ export default function LoginPage({ onLogin, onRegister, onGoogleLogin, onForgot
 
     async function handleGoogleRedirectCallback() {
       const params = parseHashParams(window.location.hash || '')
+      const oauthError = params.get('error')
+      const oauthErrorDescription = params.get('error_description')
+
+      if (oauthError) {
+        const redirectUri = getGoogleRedirectUri()
+        setError(
+          `Google redirect failed (${oauthError}). ${oauthErrorDescription || 'Please check OAuth configuration.'} `
+          + `Ensure this redirect URI is in Google Cloud Console: ${redirectUri}`,
+        )
+        window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`)
+        return
+      }
+
       const idToken = params.get('id_token')
       const returnedState = params.get('state')
       const expectedState = window.localStorage.getItem(GOOGLE_REDIRECT_NONCE_KEY)
@@ -239,7 +266,17 @@ export default function LoginPage({ onLogin, onRegister, onGoogleLogin, onForgot
 
     const existingScript = document.getElementById(GOOGLE_SCRIPT_ID)
     if (existingScript) {
-      renderGoogleButton()
+      if (window.google?.accounts?.id) {
+        renderGoogleButton()
+      } else {
+        const onLoad = () => renderGoogleButton()
+        const onError = () => {
+          setGoogleNotice('Failed to load Google Sign-In SDK. Your network, ad blocker, or browser privacy settings may be blocking Google scripts.')
+        }
+
+        existingScript.addEventListener('load', onLoad, { once: true })
+        existingScript.addEventListener('error', onError, { once: true })
+      }
       return
     }
 
@@ -250,7 +287,7 @@ export default function LoginPage({ onLogin, onRegister, onGoogleLogin, onForgot
     script.defer = true
     script.onload = renderGoogleButton
     script.onerror = () => {
-      setGoogleNotice('Failed to load Google Sign-In. Check your internet connection.')
+      setGoogleNotice('Failed to load Google Sign-In SDK. Your network, ad blocker, or browser privacy settings may be blocking Google scripts.')
     }
     document.body.appendChild(script)
 
@@ -397,9 +434,9 @@ export default function LoginPage({ onLogin, onRegister, onGoogleLogin, onForgot
   return (
     <section className="login-page" aria-label="Login to Challenger">
       <div className="login-card">
-        <h1 className="brand-heading brand-heading-inline">
-          <img src="/avatars/challenger.png" alt="Challenger logo" className="brand-logo-img" />
-          <span className="brand-word">Challenger</span>
+        <h1 className="login-brand-heading" aria-label="Challenger">
+          <img src="/avatars/challenger.png" alt="Challenger logo" className="login-brand-logo" />
+          <span className="login-brand-word">Challenger</span>
         </h1>
         <p className="login-subtitle">
           {authMode === 'login'
@@ -614,6 +651,13 @@ export default function LoginPage({ onLogin, onRegister, onGoogleLogin, onForgot
           <div className="google-login-block">
             <p className="google-login-label">or continue with</p>
             <div ref={googleButtonRef} className="google-login-button" />
+            <button
+              type="button"
+              className="google-redirect-btn"
+              onClick={triggerGoogleRedirectSignIn}
+            >
+              Continue with Google (Redirect)
+            </button>
             {isRedirectSigningIn ? <p className="google-login-label">Finishing Google sign in...</p> : null}
             {googleNotice ? (
               <div className="login-error-box">
@@ -631,13 +675,7 @@ export default function LoginPage({ onLogin, onRegister, onGoogleLogin, onForgot
           </p>
         )}
 
-        <p className="login-hint">
-          {authMode === 'login'
-            ? 'If you do not have an account yet, switch to Create Account.'
-            : 'Create an account with your details, then log in any time.'}
-        </p>
-
-        {debugInfo ? <p style={{ fontSize: '0.75rem', color: '#999', marginTop: '10px' }}>{debugInfo}</p> : null}
+        {debugInfo ? <p className="login-debug-origin">{debugInfo}</p> : null}
       </div>
     </section>
   )

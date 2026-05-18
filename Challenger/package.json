@@ -12,12 +12,27 @@
     "start": "node server/index.js"
   },
   "dependencies": {
+    "@apollo/client": "^4.1.9",
+    "@aws-sdk/client-s3": "^3.1047.0",
+    "@aws-sdk/s3-request-presigner": "^3.1047.0",
+    "@google-cloud/storage": "^7.19.0",
+    "@graphql-tools/schema": "^10.0.33",
+    "@supabase/supabase-js": "^2.105.4",
+    "bcryptjs": "^3.0.3",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "express": "^4.21.2",
+    "graphql": "^16.14.0",
+    "graphql-http": "^1.22.4",
+    "graphql-ws": "^6.0.8",
+    "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.6.2",
     "multer": "^1.4.5-lts.1",
+    "pg": "^8.20.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "redis": "^5.12.1",
+    "ws": "^8.20.1"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.2",
