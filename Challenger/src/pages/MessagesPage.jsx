@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { getAvatar } from '../utils/avatar'
 
 const MESSAGE_EDIT_WINDOW_MS = 5 * 60 * 1000
 
@@ -200,7 +201,7 @@ export default function MessagesPage({
                 className={`messages-contact ${activeContact?.id === contact.id ? 'active' : ''}`}
                 onClick={() => handleSelectContact(contact.id)}
               >
-                <img src={contact.avatar} alt={contact.name} className="messages-contact-avatar" />
+                <img src={getAvatar(contact)} alt={contact.name} className="messages-contact-avatar" />
                 <div className="messages-contact-copy">
                   <strong>{contact.name}</strong>
                   <p>{latestMessage?.text || 'Start a conversation'}</p>
@@ -236,7 +237,7 @@ export default function MessagesPage({
                 aria-label={`View ${activeContact.name} profile`}
               >
                 <img
-                  src={activeContact.avatar}
+                  src={getAvatar(activeContact)}
                   alt={activeContact.name}
                   className="messages-thread-avatar"
                 />

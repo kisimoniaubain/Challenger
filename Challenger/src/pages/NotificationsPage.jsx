@@ -1,3 +1,5 @@
+import { getAvatar } from '../utils/avatar'
+
 export default function NotificationsPage({
   currentUser,
   users,
@@ -29,7 +31,7 @@ export default function NotificationsPage({
         icon: 'fa-solid fa-heart',
         title: `${actor?.name || 'Someone'} liked your post`,
         detail: item.challengeTitle || 'Your post received a new like.',
-        avatar: actor?.avatar || currentUser.avatar,
+        avatar: getAvatar(actor || currentUser),
       }
     }
 
@@ -38,7 +40,7 @@ export default function NotificationsPage({
         icon: 'fa-solid fa-comment',
         title: `${actor?.name || 'Someone'} commented on your post`,
         detail: item.challengeTitle || 'Your post received a new comment.',
-        avatar: actor?.avatar || currentUser.avatar,
+        avatar: getAvatar(actor || currentUser),
       }
     }
 
@@ -47,7 +49,7 @@ export default function NotificationsPage({
         icon: 'fa-solid fa-thumbs-up',
         title: `${actor?.name || 'Someone'} voted for your challenge`,
         detail: item.challengeTitle || 'Your challenge got a new vote.',
-        avatar: actor?.avatar || currentUser.avatar,
+        avatar: getAvatar(actor || currentUser),
       }
     }
 
@@ -56,7 +58,7 @@ export default function NotificationsPage({
         icon: 'fa-solid fa-microphone-lines',
         title: `${actor?.name || 'Someone'} posted a new challenge`,
         detail: item.challengeTitle || 'New challenge available.',
-        avatar: actor?.avatar || currentUser.avatar,
+        avatar: getAvatar(actor || currentUser),
       }
     }
 
@@ -65,7 +67,7 @@ export default function NotificationsPage({
         icon: 'fa-solid fa-face-smile',
         title: `${actor?.name || 'Someone'} reacted to your story`,
         detail: 'Your story got a new reaction.',
-        avatar: actor?.avatar || currentUser.avatar,
+        avatar: getAvatar(actor || currentUser),
       }
     }
 
@@ -73,7 +75,7 @@ export default function NotificationsPage({
       icon: 'fa-solid fa-bell',
       title: 'New notification',
       detail: 'You have an update.',
-      avatar: currentUser.avatar,
+      avatar: getAvatar(currentUser),
     }
   }
 
@@ -115,7 +117,7 @@ export default function NotificationsPage({
               <span className="rank">
                 <i className="fa-solid fa-envelope" aria-hidden="true" />
               </span>
-              <img src={sender?.avatar} alt={sender?.name} className="post-avatar" />
+              <img src={getAvatar(sender || currentUser)} alt={sender?.name} className="post-avatar" />
               <div className="leaderboard-user">
                 <strong>{sender?.name || 'Someone'} sent you a message</strong>
                 <p>{message.text}</p>
@@ -129,7 +131,7 @@ export default function NotificationsPage({
             <span className="rank">
               <i className="fa-solid fa-thumbs-up" aria-hidden="true" />
             </span>
-            <img src={currentUser.avatar} alt={currentUser.name} className="post-avatar" />
+            <img src={getAvatar(currentUser)} alt={currentUser.name} className="post-avatar" />
             <div className="leaderboard-user">
               <strong>{tx('Challenge Votes')}</strong>
               <p>

@@ -6,6 +6,8 @@ export const users = [
     password: 'password123',
     avatar:
       'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80',
+    coverPhoto: null,
+    gender: 'female',
     totalVotes: 18,
   },
   {
@@ -15,6 +17,8 @@ export const users = [
     password: 'password123',
     avatar:
       'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80',
+    coverPhoto: null,
+    gender: 'male',
     totalVotes: 25,
   },
   {
@@ -24,6 +28,8 @@ export const users = [
     password: 'password123',
     avatar:
       'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?auto=format&fit=crop&w=200&q=80',
+    coverPhoto: null,
+    gender: 'female',
     totalVotes: 14,
   },
   {
@@ -33,6 +39,28 @@ export const users = [
     password: 'password123',
     avatar:
       'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=200&q=80',
+    coverPhoto: null,
+    gender: 'male',
     totalVotes: 10,
+  },
+  {
+    id: 5,
+    name: 'Emma Wilson',
+    email: 'emma@challenger.app',
+    password: 'password123',
+    avatar: null,
+    coverPhoto: null,
+    gender: 'female',
+    totalVotes: 8,
+  },
+  {
+    id: 6,
+    name: 'Kofi Mensah',
+    email: 'kofi@challenger.app',
+    password: 'password123',
+    avatar: null,
+    coverPhoto: null,
+    gender: 'male',
+    totalVotes: 12,
   },
 ]

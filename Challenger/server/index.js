@@ -60,6 +60,7 @@ import {
   updateConnectionStatus,
 } from './graphDb.js'
 import { resolvers, schemaSource } from './graphql.js'
+import { initUploadQueue, queueImageOptimization, getJobStatus, closeUploadQueue } from './uploadQueue.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -1328,7 +1329,7 @@ app.post('/api/storage/sign-upload', limitSignUpload, requireUploadSession, asyn
 })
 
 app.post('/api/upload', limitFileUpload, requireUploadSession, (request, response) => {
-  upload.single('file')(request, response, (error) => {
+  upload.single('file')(request, response, async (error) => {
     if (error) {
       if (error instanceof multer.MulterError && error.code === 'LIMIT_FILE_SIZE') {
         response.status(400).json({ ok: false, message: `File size exceeds limit (${Math.round(MAX_UPLOAD_SIZE_BYTES / (1024 * 1024))} MB).` })
@@ -1345,15 +1346,48 @@ app.post('/api/upload', limitFileUpload, requireUploadSession, (request, respons
     }
 
     const publicOrigin = `${request.protocol}://${request.get('host')}`
-
-    response.json({
-      ok: true,
-      url: `${publicOrigin}/uploads/${request.file.filename}`,
-      mimeType: request.file.mimetype,
-      uploadMethod: 'local-fallback',
-      uploadProvider: 'local',
-    })
+    const fileUrl = `${publicOrigin}/uploads/${request.file.filename}`
+    
+    // Queue image optimization in background
+    try {
+      const queueResult = await queueImageOptimization(
+        request.file.path,
+        request.file.filename,
+        { mimeType: request.file.mimetype }
+      )
+      
+      response.json({
+        ok: true,
+        url: fileUrl,
+        mimeType: request.file.mimetype,
+        uploadMethod: 'async-with-optimization',
+        uploadProvider: 'local',
+        jobId: queueResult.jobId,
+        message: 'File uploaded. Image optimization processing in background.',
+      })
+    } catch (queueError) {
+      // Fallback: still return the file, but warn about queue failure
+      console.warn('Queue failed, returning file without optimization:', queueError?.message)
+      response.json({
+        ok: true,
+        url: fileUrl,
+        mimeType: request.file.mimetype,
+        uploadMethod: 'sync-fallback',
+        uploadProvider: 'local',
+        message: 'File uploaded successfully.',
+      })
+    }
   })
+})
+
+// Check image optimization job status
+app.get('/api/upload/job/:jobId', (request, response) => {
+  try {
+    const status = getJobStatus(request.params.jobId)
+    response.json(status)
+  } catch (error) {
+    response.status(400).json({ ok: false, error: error?.message || 'Failed to get job status' })
+  }
 })
 
 if (existsSync(distDirectory)) {
@@ -1370,6 +1404,24 @@ async function startServer() {
     }
 
     await initDatabase()
+    
+    // Initialize Bull queue for background image processing
+    const redisUrl = process.env.REDIS_URL || process.env.REDIS_URI
+    const redisConfig = redisUrl 
+      ? { url: redisUrl }
+      : { 
+          host: process.env.REDIS_HOST || 'localhost',
+          port: Number(process.env.REDIS_PORT || 6379),
+        }
+    
+    try {
+      initUploadQueue(redisConfig)
+      console.log('✓ Upload queue initialized with Redis')
+    } catch (queueError) {
+      console.warn('⚠ Failed to initialize upload queue:', queueError?.message)
+      console.warn('  Images will be processed synchronously (slower uploads)')
+    }
+    
     const dataMode = getDatabaseMode()
     const graphDataMode = getGraphDatabaseMode()
     httpServer.listen(port, () => {
@@ -1384,3 +1436,16 @@ async function startServer() {
 }
 
 startServer()
+
+// Graceful shutdown
+process.on('SIGTERM', async () => {
+  console.log('SIGTERM received, shutting down gracefully...')
+  await closeUploadQueue()
+  process.exit(0)
+})
+
+process.on('SIGINT', async () => {
+  console.log('SIGINT received, shutting down gracefully...')
+  await closeUploadQueue()
+  process.exit(0)
+})
